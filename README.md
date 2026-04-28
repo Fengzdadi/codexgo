@@ -2,7 +2,7 @@
 
 CodexGo is a small policy layer for Codex `PermissionRequest` hooks. It lets Codex auto-approve low-risk shell approvals, deny known-dangerous patterns, and fall back to the normal Codex prompt when no rule matches.
 
-[Changelog](CHANGELOG.md)
+[Changelog](CHANGELOG.md) | Current stable release: `v0.1.1`
 
 ## Quick Start
 
@@ -12,11 +12,22 @@ Install CodexGo:
 curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | sh
 ```
 
+The install script currently supports macOS only. It downloads the macOS release binary and places it in `~/.local/bin/codexgo`. If `~/.local/bin` is not in your `PATH`, the installer prints the shell command to add it.
+
+Verify the install:
+
+```sh
+codexgo version
+codexgo explain "git status"
+```
+
 Install the hook for your Codex user config:
 
 ```sh
 codexgo init --scope user
 ```
+
+Start a new Codex session after running `init` so Codex reloads hooks.
 
 To install a specific version, pass `CODEXGO_VERSION` to the installer:
 
@@ -31,7 +42,7 @@ curl -fsSLo install.sh https://raw.githubusercontent.com/fengzdadi/codexgo/main/
 CODEXGO_VERSION=v0.1.1 sh install.sh
 ```
 
-The installer downloads the macOS release binary and places it in `~/.local/bin/codexgo`. If `~/.local/bin` is not in your `PATH`, the installer prints the shell command to add it.
+You can also download `codexgo-darwin-arm64` or `codexgo-darwin-amd64` directly from the GitHub Releases page.
 
 Or install with Go:
 
@@ -59,6 +70,7 @@ Add project-specific approvals:
 codexgo allow --scope project "git add"
 codexgo allow --scope project "git commit"
 codexgo deny --scope project "git push"
+codexgo remove --scope project "git push"
 ```
 
 Check what will happen before using Codex:
@@ -326,5 +338,6 @@ If Codex still prompts for a command that `codexgo explain` says should be allow
 - Confirm hooks are enabled in `.codex/config.toml` or `~/.codex/config.toml`.
 - Confirm `hooks.json` points to the absolute path of the `codexgo` binary.
 - Check whether `.codexgo/audit.jsonl` received a new entry.
+- Remember that CodexGo does not revoke sandbox approvals already granted in the surrounding Codex runtime or current session.
 
 If the audit log has no new entry, Codex did not invoke the hook. If the audit log shows `decision: allow` but Codex still prompts, the prompt is coming from another permission or sandbox layer.
