@@ -93,7 +93,7 @@ func main() {
 	case "init":
 		err = runInit(os.Args[2:])
 	case "allow", "deny", "ask":
-		err = runPolicyCommand(os.Args[1], os.Args[2:])
+		err = runPolicyCommand(os.Args[1], os.Args[2:], os.Stdout)
 	case "explain":
 		err = runExplain(os.Args[2:], os.Stdout)
 	case "list":
@@ -573,7 +573,7 @@ func samplePolicy() Policy {
 	return builtInPolicy()
 }
 
-func runPolicyCommand(decision string, args []string) error {
+func runPolicyCommand(decision string, args []string, out io.Writer) error {
 	fs := flag.NewFlagSet(decision, flag.ContinueOnError)
 	scope := fs.String("scope", "user", "policy scope: user or project")
 	match := fs.String("match", "prefix", "match mode: exact, prefix, or contains")
@@ -634,11 +634,13 @@ func runPolicyCommand(decision string, args []string) error {
 	}
 
 	if !changed {
-		fmt.Printf("%s already has %s rule for %q\n", path, decision, command)
+		fmt.Fprintf(out, "No change: %s policy already sets %s for %q (match=%s, tool=%s)\n", *scope, decision, command, *match, *tool)
+		fmt.Fprintf(out, "Policy: %s\n", path)
 		return nil
 	}
 
-	fmt.Printf("Added %s %s rule for %q to %s\n", *scope, decision, command, path)
+	fmt.Fprintf(out, "Set %s policy: %s %q (match=%s, tool=%s)\n", *scope, decision, command, *match, *tool)
+	fmt.Fprintf(out, "Policy: %s\n", path)
 	return nil
 }
 

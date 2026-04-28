@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -305,7 +306,7 @@ func TestPolicyCommandAddsUserAllowRule(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	if err := runPolicyCommand("allow", []string{"--scope", "user", "--match", "exact", "npm run typecheck"}); err != nil {
+	if err := runPolicyCommand("allow", []string{"--scope", "user", "--match", "exact", "npm run typecheck"}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
@@ -319,15 +320,37 @@ func TestPolicyCommandAddsUserAllowRule(t *testing.T) {
 	}
 }
 
+func TestPolicyCommandPrintsSetFeedback(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	var out bytes.Buffer
+	if err := runPolicyCommand("ask", []string{"--scope", "user", "git push"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	for _, want := range []string{
+		`Set user policy: ask "git push"`,
+		"match=prefix",
+		"tool=Bash",
+		"Policy:",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in output:\n%s", want, text)
+		}
+	}
+}
+
 func TestPolicyCommandDeduplicatesCommands(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
 	args := []string{"--scope", "user", "git status"}
-	if err := runPolicyCommand("allow", args); err != nil {
+	if err := runPolicyCommand("allow", args, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := runPolicyCommand("allow", args); err != nil {
+	if err := runPolicyCommand("allow", args, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
@@ -341,10 +364,10 @@ func TestPolicyCommandOverridesExistingCommandDecision(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	if err := runPolicyCommand("allow", []string{"--scope", "user", "git push"}); err != nil {
+	if err := runPolicyCommand("allow", []string{"--scope", "user", "git push"}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := runPolicyCommand("ask", []string{"--scope", "user", "git push"}); err != nil {
+	if err := runPolicyCommand("ask", []string{"--scope", "user", "git push"}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
@@ -374,7 +397,7 @@ func TestPolicyCommandAddsProjectDenyRule(t *testing.T) {
 		_ = os.Chdir(previous)
 	})
 
-	if err := runPolicyCommand("deny", []string{"--scope", "project", "--match", "prefix", "git push"}); err != nil {
+	if err := runPolicyCommand("deny", []string{"--scope", "project", "--match", "prefix", "git push"}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
@@ -394,7 +417,7 @@ func TestPolicyCommandConcurrentWritesKeepValidJSON(t *testing.T) {
 		wg.Add(1)
 		go func(command string) {
 			defer wg.Done()
-			errs <- runPolicyCommand("allow", []string{"--scope", "user", command})
+			errs <- runPolicyCommand("allow", []string{"--scope", "user", command}, io.Discard)
 		}(command)
 	}
 	wg.Wait()
