@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	version         = "v0.1.1"
+	version         = "v0.1.2"
 	defaultDecision = "ask"
 	userPolicyPath  = ".codexgo/policy.json"
 	auditPath       = ".codexgo/audit.jsonl"

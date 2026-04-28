@@ -4,6 +4,8 @@ All notable changes to CodexGo are documented here.
 
 ## Unreleased
 
+## v0.1.2 - 2026-04-28
+
 ### Added
 
 - Added `codexgo remove` to delete command rules from user or project policy files.

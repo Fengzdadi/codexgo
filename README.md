@@ -2,7 +2,7 @@
 
 CodexGo is a small policy layer for Codex `PermissionRequest` hooks. It lets Codex auto-approve low-risk shell approvals, deny known-dangerous patterns, and fall back to the normal Codex prompt when no rule matches.
 
-[Changelog](CHANGELOG.md) | Current stable release: `v0.1.1`
+[Changelog](CHANGELOG.md) | Current stable release: `v0.1.2`
 
 ## Quick Start
 
@@ -32,14 +32,14 @@ Start a new Codex session after running `init` so Codex reloads hooks.
 To install a specific version, pass `CODEXGO_VERSION` to the installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | CODEXGO_VERSION=v0.1.1 sh
+curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | CODEXGO_VERSION=v0.1.2 sh
 ```
 
 Or download the installer first with `curl`:
 
 ```sh
 curl -fsSLo install.sh https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh
-CODEXGO_VERSION=v0.1.1 sh install.sh
+CODEXGO_VERSION=v0.1.2 sh install.sh
 ```
 
 You can also download `codexgo-darwin-arm64` or `codexgo-darwin-amd64` directly from the GitHub Releases page.
@@ -53,7 +53,7 @@ go install github.com/fengzdadi/codexgo@latest
 To install a specific version with Go:
 
 ```sh
-go install github.com/fengzdadi/codexgo@v0.1.1
+go install github.com/fengzdadi/codexgo@v0.1.2
 ```
 
 Make sure your Go binary directory is on your `PATH`, usually `$(go env GOPATH)/bin`.
