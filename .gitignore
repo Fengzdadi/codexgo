@@ -1,0 +1,4 @@
+bin/
+.codexgo/audit.jsonl
+.codexgo/*.lock
+.codex/

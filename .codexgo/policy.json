@@ -1,0 +1,94 @@
+{
+  "defaultDecision": "ask",
+  "rules": [
+    {
+      "name": "block destructive shell patterns",
+      "decision": "deny",
+      "tools": [
+        "Bash"
+      ],
+      "match": "contains",
+      "commands": [
+        "rm -rf /",
+        "git reset --hard",
+        "curl | sh",
+        "curl | bash",
+        "sudo "
+      ]
+    },
+    {
+      "name": "allow read-only discovery",
+      "decision": "allow",
+      "tools": [
+        "Bash"
+      ],
+      "match": "prefix",
+      "commands": [
+        "pwd",
+        "ls",
+        "rg",
+        "cat",
+        "sed -n",
+        "git status",
+        "git diff",
+        "git log",
+        "git show",
+        "go version",
+        "node --version",
+        "npm --version"
+      ]
+    },
+    {
+      "name": "allow common local verification",
+      "decision": "allow",
+      "tools": [
+        "Bash"
+      ],
+      "match": "prefix",
+      "commands": [
+        "go test",
+        "npm test",
+        "npm run test",
+        "npm run lint",
+        "npm run build",
+        "cargo test",
+        "pytest"
+      ]
+    },
+    {
+      "name": "codexgo allow prefix Bash commands",
+      "decision": "allow",
+      "tools": [
+        "Bash"
+      ],
+      "match": "prefix",
+      "commands": [
+        "npm install lodash"
+      ]
+    },
+    {
+      "name": "codexgo deny prefix Bash commands",
+      "decision": "deny",
+      "tools": [
+        "Bash"
+      ],
+      "match": "prefix",
+      "commands": [
+        "git push"
+      ]
+    },
+    {
+      "name": "codexgo allow exact Bash commands",
+      "decision": "allow",
+      "tools": [
+        "Bash"
+      ],
+      "match": "exact",
+      "commands": [
+        "npm ci",
+        "go mod tidy",
+        "git fetch"
+      ]
+    }
+  ]
+}
