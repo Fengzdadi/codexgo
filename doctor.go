@@ -49,6 +49,16 @@ type auditDoctorResult struct {
 	Error        string
 }
 
+type doctorSummary struct {
+	ProjectHookOK    bool
+	UserHookOK       bool
+	PolicyOK         bool
+	ProjectAuditOK   bool
+	UserAuditOK      bool
+	EffectiveProfile string
+	PolicyError      error
+}
+
 func runDoctor(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	cwd := fs.String("cwd", "", "project directory to inspect")
@@ -73,12 +83,66 @@ func runDoctor(args []string, out io.Writer) error {
 	fmt.Fprintln(out, "CodexGo doctor")
 	fmt.Fprintf(out, "Workspace: %s\n\n", absCWD)
 
+	userHook := inspectHooks(userCodexRoot())
+	projectHook := inspectHooks(filepath.Join(absCWD, ".codex"))
+	policy, loaded, policyErr := loadPolicy(absCWD)
+	projectAudit := inspectAudit(filepath.Join(absCWD, ".codexgo", "audit.jsonl"))
+	userAudit := auditDoctorResult{}
+	if home, _ := os.UserHomeDir(); home != "" {
+		userAudit = inspectAudit(filepath.Join(home, auditPath))
+	}
+	printDoctorSummary(out, doctorSummary{
+		ProjectHookOK:    hookOK(projectHook),
+		UserHookOK:       hookOK(userHook),
+		PolicyOK:         policyErr == nil && len(loaded) > 0,
+		ProjectAuditOK:   auditOK(projectAudit),
+		UserAuditOK:      auditOK(userAudit),
+		EffectiveProfile: effectiveProfile(policy),
+		PolicyError:      policyErr,
+	})
 	printBinaryDoctor(out)
-	printHookDoctor(out, "user", userCodexRoot())
-	printHookDoctor(out, "project", filepath.Join(absCWD, ".codex"))
-	printPolicyDoctor(out, absCWD)
-	printAuditDoctor(out, absCWD)
+	printHookDoctor(out, "user", userHook)
+	printHookDoctor(out, "project", projectHook)
+	printPolicyDoctor(out, policy, loaded, policyErr)
+	printAuditDoctor(out, projectAudit, userAudit)
 	return nil
+}
+
+func printDoctorSummary(out io.Writer, summary doctorSummary) {
+	fmt.Fprintln(out, "Summary")
+	switch {
+	case summary.ProjectHookOK && summary.PolicyOK:
+		fmt.Fprintln(out, "  Overall: OK for this project")
+	case summary.UserHookOK && summary.PolicyOK:
+		fmt.Fprintln(out, "  Overall: OK through user hook")
+	default:
+		fmt.Fprintln(out, "  Overall: needs setup")
+	}
+
+	if summary.EffectiveProfile != "" {
+		fmt.Fprintf(out, "  Profile: %s\n", summary.EffectiveProfile)
+	}
+	if summary.ProjectHookOK {
+		fmt.Fprintln(out, "  Hook: project hook installed")
+	} else if summary.UserHookOK {
+		fmt.Fprintln(out, "  Hook: user hook installed")
+	} else {
+		fmt.Fprintln(out, "  Hook: missing")
+	}
+	if summary.ProjectAuditOK {
+		fmt.Fprintln(out, "  Audit: project audit has entries")
+	} else if summary.UserAuditOK {
+		fmt.Fprintln(out, "  Audit: user audit has entries")
+	} else {
+		fmt.Fprintln(out, "  Audit: no entries yet")
+	}
+	if summary.ProjectHookOK && !summary.UserHookOK {
+		fmt.Fprintln(out, "  Note: user hook is not installed; other projects may not use CodexGo.")
+	}
+	if summary.PolicyError != nil {
+		fmt.Fprintf(out, "  Policy error: %v\n", summary.PolicyError)
+	}
+	fmt.Fprintln(out)
 }
 
 func printBinaryDoctor(out io.Writer) {
@@ -102,8 +166,7 @@ func printBinaryDoctor(out io.Writer) {
 	fmt.Fprintln(out)
 }
 
-func printHookDoctor(out io.Writer, scope, root string) {
-	result := inspectHooks(root)
+func printHookDoctor(out io.Writer, scope string, result hookDoctorResult) {
 	fmt.Fprintf(out, "%s hook\n", scope)
 	if result.ConfigExists {
 		if result.FeatureFlag {
@@ -136,9 +199,8 @@ func printHookDoctor(out io.Writer, scope, root string) {
 	fmt.Fprintln(out)
 }
 
-func printPolicyDoctor(out io.Writer, cwd string) {
+func printPolicyDoctor(out io.Writer, policy ResolvedPolicy, loaded []string, err error) {
 	fmt.Fprintln(out, "Policy")
-	policy, loaded, err := loadPolicy(cwd)
 	if err != nil {
 		fmt.Fprintf(out, "  WARN failed to load policy: %v\n\n", err)
 		return
@@ -165,15 +227,9 @@ func printPolicyDoctor(out io.Writer, cwd string) {
 	fmt.Fprintln(out)
 }
 
-func printAuditDoctor(out io.Writer, cwd string) {
+func printAuditDoctor(out io.Writer, projectAudit, userAudit auditDoctorResult) {
 	fmt.Fprintln(out, "Audit")
-	results := []auditDoctorResult{
-		inspectAudit(filepath.Join(cwd, ".codexgo", "audit.jsonl")),
-	}
-	home, _ := os.UserHomeDir()
-	if home != "" {
-		results = append(results, inspectAudit(filepath.Join(home, auditPath)))
-	}
+	results := []auditDoctorResult{projectAudit, userAudit}
 
 	hasEntries := false
 	for i, result := range results {
@@ -207,6 +263,21 @@ func printAuditDoctor(out io.Writer, cwd string) {
 		fmt.Fprintln(out, "  Next: start a new Codex session and run a command that requests permission.")
 	}
 	fmt.Fprintln(out)
+}
+
+func hookOK(result hookDoctorResult) bool {
+	return result.FeatureFlag && result.Installed
+}
+
+func auditOK(result auditDoctorResult) bool {
+	return result.Exists && result.Entries > 0 && result.Error == ""
+}
+
+func effectiveProfile(policy ResolvedPolicy) string {
+	if policy.Profile != "" {
+		return policy.Profile
+	}
+	return "manual"
 }
 
 func userCodexRoot() string {
