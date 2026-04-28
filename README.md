@@ -197,7 +197,19 @@ Project policy lives at:
 <repo>/.codexgo/policy.json
 ```
 
-CodexGo always starts with built-in defaults, then loads user rules, then project rules. The built-in defaults are not copied into policy files, so local policy only stores rules you explicitly add.
+CodexGo resolves policy from most specific to least specific:
+
+```text
+project policy > user policy > built-in defaults
+```
+
+Within one policy source, stricter decisions win:
+
+```text
+deny > ask > allow
+```
+
+Project rules are meant to override user-wide preferences for a specific repository. Built-in defaults are not copied into policy files, so local policy only stores rules you explicitly add.
 
 Built-in defaults currently auto-allow read-only discovery commands such as `pwd`, `ls`, `rg`, `git status`, `git diff`, `git log`, and common local verification commands such as `go test`, `npm test`, and `pytest`. Destructive patterns such as `git reset --hard` and remote shell execution patterns such as `curl | sh` are denied.
 

@@ -136,6 +136,81 @@ func TestEvaluateDenyOverridesAsk(t *testing.T) {
 	}
 }
 
+func TestEvaluateProjectOverridesUser(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Sources: []PolicySource{
+			{
+				Name: "project policy",
+				Policy: Policy{
+					DefaultDecision: defaultDecision,
+					Rules: []Rule{
+						{
+							Name:     "project allow push",
+							Decision: "allow",
+							Tools:    []string{"Bash"},
+							Match:    "prefix",
+							Commands: []string{"git push"},
+						},
+					},
+				},
+			},
+			{
+				Name: "user policy",
+				Policy: Policy{
+					DefaultDecision: defaultDecision,
+					Rules: []Rule{
+						{
+							Name:     "user ask push",
+							Decision: "ask",
+							Tools:    []string{"Bash"},
+							Match:    "prefix",
+							Commands: []string{"git push"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", "git push")
+	if decision.Behavior != "allow" || decision.Source != "project policy" {
+		t.Fatalf("expected project allow to override user ask, got %#v", decision)
+	}
+}
+
+func TestEvaluateUserOverridesBuiltIn(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Sources: []PolicySource{
+			{
+				Name: "user policy",
+				Policy: Policy{
+					DefaultDecision: defaultDecision,
+					Rules: []Rule{
+						{
+							Name:     "user allow reset",
+							Decision: "allow",
+							Tools:    []string{"Bash"},
+							Match:    "prefix",
+							Commands: []string{"git reset"},
+						},
+					},
+				},
+			},
+			{
+				Name:   "built-in defaults",
+				Policy: builtInPolicy(),
+			},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", "git reset --hard HEAD")
+	if decision.Behavior != "allow" || decision.Source != "user policy" {
+		t.Fatalf("expected user allow to override built-in deny, got %#v", decision)
+	}
+}
+
 func TestLoadPolicyUsesBuiltInDefaultsWithoutPolicyFiles(t *testing.T) {
 	tmp := t.TempDir()
 	home := filepath.Join(tmp, "home")
@@ -201,6 +276,68 @@ func TestLoadPolicyMergesExternalRulesOntoBuiltIns(t *testing.T) {
 	}
 	if decision := evaluate(policy, "Bash", "git commit -m test"); decision.Behavior != "allow" {
 		t.Fatalf("expected project git commit allow, got %#v", decision)
+	}
+}
+
+func TestLoadPolicySourcePriority(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	cwd := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(filepath.Join(home, ".codexgo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+
+	userPolicy := Policy{
+		DefaultDecision: defaultDecision,
+		Rules: []Rule{
+			{
+				Name:     "user ask push",
+				Decision: "ask",
+				Tools:    []string{"Bash"},
+				Match:    "prefix",
+				Commands: []string{"git push"},
+			},
+		},
+	}
+	projectPolicy := Policy{
+		DefaultDecision: defaultDecision,
+		Rules: []Rule{
+			{
+				Name:     "project allow push",
+				Decision: "allow",
+				Tools:    []string{"Bash"},
+				Match:    "prefix",
+				Commands: []string{"git push"},
+			},
+		},
+	}
+	if err := atomicWriteJSON(filepath.Join(home, ".codexgo", "policy.json"), userPolicy); err != nil {
+		t.Fatal(err)
+	}
+	if err := atomicWriteJSON(filepath.Join(cwd, ".codexgo", "policy.json"), projectPolicy); err != nil {
+		t.Fatal(err)
+	}
+
+	policy, _, err := loadPolicy(cwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []string{}
+	for _, source := range policy.Sources {
+		got = append(got, source.Name)
+	}
+	want := []string{"project policy", "user policy", "built-in defaults"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("unexpected source order: got %#v want %#v", got, want)
+	}
+
+	decision := evaluate(policy, "Bash", "git push")
+	if decision.Behavior != "allow" || decision.Source != "project policy" {
+		t.Fatalf("expected project allow to win, got %#v", decision)
 	}
 }
 

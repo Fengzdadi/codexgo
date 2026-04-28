@@ -289,8 +289,8 @@ func runList(args []string, out io.Writer) error {
 }
 
 func evaluate(policy ResolvedPolicy, toolName, command string) Decision {
-	for _, behavior := range []string{"deny", "ask", "allow"} {
-		for _, source := range policy.Sources {
+	for _, source := range policy.Sources {
+		for _, behavior := range []string{"deny", "ask", "allow"} {
 			for _, rule := range source.Policy.Rules {
 				if rule.Decision != behavior || !matchesTool(rule.Tools, toolName) {
 					continue
@@ -444,13 +444,11 @@ func validDecision(decision string) bool {
 func loadPolicy(cwd string) (ResolvedPolicy, []string, error) {
 	resolved := ResolvedPolicy{
 		DefaultDecision: defaultDecision,
-		Sources: []PolicySource{
-			{Name: "built-in defaults", Policy: builtInPolicy()},
-		},
+		Sources:         []PolicySource{},
 	}
 	var loaded []string
 
-	for _, path := range policyPaths(cwd) {
+	for _, path := range sourcePriorityPolicyPaths(cwd) {
 		next, ok, err := readPolicy(path)
 		if err != nil {
 			return ResolvedPolicy{}, nil, err
@@ -468,6 +466,7 @@ func loadPolicy(cwd string) (ResolvedPolicy, []string, error) {
 		})
 		loaded = append(loaded, path)
 	}
+	resolved.Sources = append(resolved.Sources, PolicySource{Name: "built-in defaults", Policy: builtInPolicy()})
 	return resolved, loaded, nil
 }
 
@@ -492,6 +491,14 @@ func policyPaths(cwd string) []string {
 		paths = append(paths, filepath.Join(cwd, ".codexgo", "policy.json"))
 	}
 	return paths
+}
+
+func sourcePriorityPolicyPaths(cwd string) []string {
+	all := policyPaths(cwd)
+	for i, j := 0, len(all)-1; i < j; i, j = i+1, j-1 {
+		all[i], all[j] = all[j], all[i]
+	}
+	return all
 }
 
 func readPolicy(path string) (Policy, bool, error) {
