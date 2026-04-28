@@ -31,6 +31,20 @@ CODEXGO_VERSION=v0.1.1 sh install.sh
 
 The installer downloads the macOS release binary and places it in `~/.local/bin/codexgo`. If `~/.local/bin` is not in your `PATH`, the installer prints the shell command to add it.
 
+Or install with Go:
+
+```sh
+go install github.com/fengzdadi/codexgo@latest
+```
+
+To install a specific version with Go:
+
+```sh
+go install github.com/fengzdadi/codexgo@v0.1.1
+```
+
+Make sure your Go binary directory is on your `PATH`, usually `$(go env GOPATH)/bin`.
+
 Or install it only for this project:
 
 ```sh
