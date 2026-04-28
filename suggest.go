@@ -33,7 +33,8 @@ type commandSuggestion struct {
 
 func runSuggest(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("suggest", flag.ContinueOnError)
-	limit := fs.Int("limit", 100, "number of recent audit entries to analyze; use 0 for all")
+	limit := fs.Int("limit", 10, "number of suggestions to show; use 0 for all")
+	auditLimit := fs.Int("audit-limit", 100, "number of recent audit entries to analyze; use 0 for all")
 	scope := fs.String("scope", "project", "policy scope to use in suggested commands: user or project")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -44,11 +45,14 @@ func runSuggest(args []string, out io.Writer) error {
 	if *limit < 0 {
 		return fmt.Errorf("invalid limit %d", *limit)
 	}
+	if *auditLimit < 0 {
+		return fmt.Errorf("invalid audit-limit %d", *auditLimit)
+	}
 	if _, err := policyPathForScope(*scope); err != nil {
 		return err
 	}
 
-	entries, err := readAuditEntries(*limit)
+	entries, err := readAuditEntries(*auditLimit)
 	if err != nil {
 		return err
 	}
@@ -57,8 +61,12 @@ func runSuggest(args []string, out io.Writer) error {
 		fmt.Fprintln(out, "No ask entries found in recent audit logs.")
 		return nil
 	}
+	total := len(suggestions)
+	if *limit > 0 && len(suggestions) > *limit {
+		suggestions = suggestions[:*limit]
+	}
 
-	fmt.Fprintf(out, "Suggestions from recent audit asks (limit: %d)\n", *limit)
+	fmt.Fprintf(out, "Suggestions from recent audit asks (showing: %d/%d, audit limit: %d)\n", len(suggestions), total, *auditLimit)
 	fmt.Fprintf(out, "Scope for commands: %s\n\n", *scope)
 	for i, suggestion := range suggestions {
 		fmt.Fprintf(out, "%d. %s\n", i+1, suggestion.Pattern)

@@ -76,6 +76,6 @@ Usage:
   codexgo decide
   codexgo sample-policy
   codexgo audit [--limit 10]
-  codexgo suggest [--limit 100] [--scope user|project]
+  codexgo suggest [--limit 10] [--audit-limit 100] [--scope user|project]
   codexgo version`)
 }

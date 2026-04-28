@@ -128,7 +128,8 @@ codexgo audit
 codexgo audit --limit 20
 codexgo audit --limit 0
 codexgo suggest
+codexgo suggest --limit 5
 ```
 
 By default, `audit` prints the 10 most recent entries. Use `--limit 0` to print all entries.
-Use `suggest` to turn repeated `ask` entries into reviewable policy commands.
+Use `suggest` to turn repeated `ask` entries into reviewable policy commands. By default, `suggest` shows up to 10 suggestions.

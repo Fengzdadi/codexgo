@@ -87,9 +87,10 @@ codexgo profile
 codexgo explain "git commit -m test"
 codexgo list
 codexgo suggest
+codexgo suggest --limit 5
 ```
 
-`suggest` reads recent audit logs and recommends explicit rules for repeated prompts. It only prints suggested commands; it does not change policy files.
+`suggest` reads recent audit logs and recommends explicit rules for repeated prompts. It shows up to 10 suggestions by default; use `--limit` to change the output count. It only prints suggested commands; it does not change policy files.
 
 ## How It Works
 

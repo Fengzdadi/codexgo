@@ -55,7 +55,7 @@ func TestSuggestLimitAppliesRecentEntries(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	if err := runSuggest([]string{"--limit", "2"}, &out); err != nil {
+	if err := runSuggest([]string{"--audit-limit", "2"}, &out); err != nil {
 		t.Fatal(err)
 	}
 
@@ -67,6 +67,28 @@ func TestSuggestLimitAppliesRecentEntries(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("expected %q in limited suggest output:\n%s", want, text)
 		}
+	}
+}
+
+func TestSuggestLimitAppliesOutputCount(t *testing.T) {
+	cwd := suggestTestCWD(t)
+	writeSuggestAudit(t, cwd,
+		`{"command":"git add README.md","decision":"ask"}`,
+		`{"command":"git commit -m test","decision":"ask"}`,
+		`{"command":"git push origin main","decision":"ask"}`,
+	)
+
+	var out bytes.Buffer
+	if err := runSuggest([]string{"--limit", "2", "--audit-limit", "0"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	if !strings.Contains(text, "showing: 2/3") {
+		t.Fatalf("expected output count in suggest header:\n%s", text)
+	}
+	if strings.Contains(text, "git push") {
+		t.Fatalf("expected output limit to truncate third suggestion:\n%s", text)
 	}
 }
 

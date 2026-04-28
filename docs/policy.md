@@ -188,8 +188,9 @@ Use `suggest` to review repeated prompts from recent audit logs:
 
 ```sh
 codexgo suggest
-codexgo suggest --limit 50
+codexgo suggest --limit 5
+codexgo suggest --audit-limit 50
 codexgo suggest --scope user
 ```
 
-`suggest` is deterministic. It groups recent `ask` decisions, ignores already allowed or denied entries, and prints possible `codexgo allow`, `codexgo ask`, or `codexgo deny` commands. It does not call an LLM and does not modify policy files.
+`suggest` is deterministic. It groups recent `ask` decisions, ignores already allowed or denied entries, and prints possible `codexgo allow`, `codexgo ask`, or `codexgo deny` commands. By default it analyzes the 100 most recent audit entries and shows up to 10 suggestions. Use `--limit` to change the number of suggestions shown, and `--audit-limit` to change how many audit entries are scanned. It does not call an LLM and does not modify policy files.
