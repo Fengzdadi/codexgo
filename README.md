@@ -32,6 +32,12 @@ Or install it only for this project:
 ./bin/codexgo init --scope project --bin "$(pwd)/bin/codexgo"
 ```
 
+For this repository, the GitHub remote is:
+
+```text
+https://github.com/Fengzdadi/codexgo
+```
+
 `init` writes:
 
 - `config.toml` with `codex_hooks = true`
