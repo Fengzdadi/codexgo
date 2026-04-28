@@ -667,6 +667,8 @@ func managedRuleName(decision, match, tool string) string {
 
 func addCommandRule(policy *Policy, rule Rule) bool {
 	command := rule.Commands[0]
+	changed := removeCommandFromOtherRules(policy, rule, command)
+
 	for i := range policy.Rules {
 		existing := &policy.Rules[i]
 		if existing.Name != rule.Name ||
@@ -677,7 +679,7 @@ func addCommandRule(policy *Policy, rule Rule) bool {
 		}
 		for _, existingCommand := range existing.Commands {
 			if existingCommand == command {
-				return false
+				return changed
 			}
 		}
 		existing.Commands = append(existing.Commands, command)
@@ -686,6 +688,42 @@ func addCommandRule(policy *Policy, rule Rule) bool {
 
 	policy.Rules = append(policy.Rules, rule)
 	return true
+}
+
+func removeCommandFromOtherRules(policy *Policy, rule Rule, command string) bool {
+	changed := false
+	nextRules := policy.Rules[:0]
+
+	for _, existing := range policy.Rules {
+		if existing.Name == rule.Name &&
+			existing.Decision == rule.Decision &&
+			existing.Match == rule.Match &&
+			sameStrings(existing.Tools, rule.Tools) {
+			nextRules = append(nextRules, existing)
+			continue
+		}
+
+		if !sameStrings(existing.Tools, rule.Tools) {
+			nextRules = append(nextRules, existing)
+			continue
+		}
+
+		nextCommands := existing.Commands[:0]
+		for _, existingCommand := range existing.Commands {
+			if strings.Join(strings.Fields(existingCommand), " ") == command {
+				changed = true
+				continue
+			}
+			nextCommands = append(nextCommands, existingCommand)
+		}
+		existing.Commands = nextCommands
+		if len(existing.Commands) > 0 {
+			nextRules = append(nextRules, existing)
+		}
+	}
+
+	policy.Rules = nextRules
+	return changed
 }
 
 func sameStrings(a, b []string) bool {

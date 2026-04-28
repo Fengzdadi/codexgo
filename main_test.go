@@ -337,6 +337,27 @@ func TestPolicyCommandDeduplicatesCommands(t *testing.T) {
 	}
 }
 
+func TestPolicyCommandOverridesExistingCommandDecision(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := runPolicyCommand("allow", []string{"--scope", "user", "git push"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runPolicyCommand("ask", []string{"--scope", "user", "git push"}); err != nil {
+		t.Fatal(err)
+	}
+
+	policy := readTestPolicy(t, filepath.Join(home, ".codexgo", "policy.json"))
+	if len(policy.Rules) != 1 {
+		t.Fatalf("expected one rule after override, got %#v", policy.Rules)
+	}
+	rule := policy.Rules[0]
+	if rule.Decision != "ask" || rule.Commands[0] != "git push" {
+		t.Fatalf("expected ask git push after override, got %#v", rule)
+	}
+}
+
 func TestPolicyCommandAddsProjectDenyRule(t *testing.T) {
 	home := t.TempDir()
 	cwd := t.TempDir()

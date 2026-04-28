@@ -26,6 +26,17 @@
         "go mod tidy",
         "git fetch"
       ]
+    },
+    {
+      "name": "codexgo ask prefix Bash commands",
+      "decision": "ask",
+      "tools": [
+        "Bash"
+      ],
+      "match": "prefix",
+      "commands": [
+        "git push"
+      ]
     }
   ]
 }
