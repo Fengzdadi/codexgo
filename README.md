@@ -16,10 +16,17 @@ Install the hook for your Codex user config:
 codexgo init --scope user
 ```
 
-To install a specific version:
+To install a specific version, pass `CODEXGO_VERSION` to the installer:
 
 ```sh
-CODEXGO_VERSION=v0.1.1 curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | CODEXGO_VERSION=v0.1.1 sh
+```
+
+Or download the installer first with `curl`:
+
+```sh
+curl -fsSLo install.sh https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh
+CODEXGO_VERSION=v0.1.1 sh install.sh
 ```
 
 The installer downloads the macOS release binary and places it in `~/.local/bin/codexgo`. If `~/.local/bin` is not in your `PATH`, the installer prints the shell command to add it.
