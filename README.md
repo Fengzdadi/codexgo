@@ -7,7 +7,7 @@ CodexGo is a small policy layer for Codex `PermissionRequest` hooks. It lets Cod
 Install CodexGo:
 
 ```sh
-go install github.com/fengzdadi/codexgo@v0.1.0
+curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | sh
 ```
 
 Install the hook for your Codex user config:
@@ -15,6 +15,14 @@ Install the hook for your Codex user config:
 ```sh
 codexgo init --scope user
 ```
+
+To install a specific version:
+
+```sh
+CODEXGO_VERSION=v0.1.1 curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | sh
+```
+
+The installer downloads the macOS release binary and places it in `~/.local/bin/codexgo`. If `~/.local/bin` is not in your `PATH`, the installer prints the shell command to add it.
 
 Or install it only for this project:
 
