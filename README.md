@@ -37,6 +37,8 @@ codexgo go --scope project
 
 In `go` profile, CodexGo allows most simple development commands, still asks for sensitive commands such as `git push`, and denies dangerous commands such as `rm -rf /`.
 
+For compound commands such as `cmd1 && cmd2` or `cmd1 | cmd2`, CodexGo checks each segment. If any segment asks or denies, the whole command asks or denies; if every segment is allowed, the whole command is allowed.
+
 Return to manual mode with:
 
 ```sh
@@ -61,7 +63,10 @@ flowchart LR
   goRisk -->|dangerous| goDeny["deny"]
   goRisk -->|sensitive| goAsk["ask Codex user"]
   goRisk -->|simple unmatched| goAllow["allow"]
-  goRisk -->|complex shell| goAsk
+  goRisk -->|compound command| goSegments["check each segment"]
+  goSegments -->|any ask| goAsk
+  goSegments -->|any deny| goDeny
+  goSegments -->|all allow| goAllow
 ```
 
 ## Common Commands

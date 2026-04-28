@@ -4,6 +4,14 @@ All notable changes to CodexGo are documented here.
 
 ## Unreleased
 
+### Changed
+
+- In `go` profile, compound shell commands are now evaluated segment by segment instead of always asking.
+
+### Security
+
+- Remote shell execution patterns such as `curl ... | sh` are denied before segment fallback evaluation.
+
 ## v0.1.3 - 2026-04-28
 
 ### Added

@@ -6,6 +6,18 @@ import (
 )
 
 func evaluate(policy ResolvedPolicy, toolName, command string) Decision {
+	if hasRemoteShellPipe(command) {
+		return Decision{
+			Behavior: "deny",
+			Source:   "built-in defaults",
+			RuleName: "block remote shell execution",
+			Reason:   "remote shell execution is dangerous",
+		}
+	}
+	if hasShellControlOperator(command) && policy.Profile == goProfile {
+		return evaluateGoProfileCompoundCommand(policy, toolName, command)
+	}
+
 	for _, source := range policy.Sources {
 		for _, behavior := range []string{"deny", "ask", "allow"} {
 			for _, rule := range source.Policy.Rules {
@@ -23,6 +35,75 @@ func evaluate(policy ResolvedPolicy, toolName, command string) Decision {
 							Reason:   "compound shell command needs explicit approval",
 						}
 					}
+					return Decision{
+						Behavior: rule.Decision,
+						Source:   source.Name,
+						RuleName: rule.Name,
+						Match:    matchMode(rule),
+						Pattern:  pattern,
+						Reason:   fmt.Sprintf("matched %s rule %q", source.Name, rule.Name),
+					}
+				}
+			}
+		}
+	}
+
+	if policy.Profile == goProfile {
+		if isComplexShellCommand(command) {
+			return Decision{
+				Behavior: "ask",
+				Source:   "go profile",
+				Reason:   "complex shell command needs explicit approval",
+			}
+		}
+		return Decision{
+			Behavior: "allow",
+			Source:   "go profile",
+			Reason:   "go profile allows unmatched commands",
+		}
+	}
+
+	behavior := policy.DefaultDecision
+	if behavior == "" {
+		behavior = defaultDecision
+	}
+	return Decision{Behavior: behavior, Reason: "no codexgo rule matched"}
+}
+
+func evaluateGoProfileCompoundCommand(policy ResolvedPolicy, toolName, command string) Decision {
+	segments := splitShellSegments(command)
+	if len(segments) <= 1 {
+		return evaluateSimpleCommand(policy, toolName, command)
+	}
+
+	for _, segment := range segments {
+		decision := evaluateSimpleCommand(policy, toolName, segment)
+		if decision.Behavior == "deny" {
+			decision.Reason = fmt.Sprintf("compound shell segment denied: %s", decision.Reason)
+			return decision
+		}
+		if decision.Behavior == "ask" || decision.Behavior == "" {
+			decision.Behavior = "ask"
+			decision.Reason = fmt.Sprintf("compound shell segment needs approval: %s", decision.Reason)
+			return decision
+		}
+	}
+
+	return Decision{
+		Behavior: "allow",
+		Source:   "go profile",
+		Reason:   "all compound shell segments are allowed by go profile",
+	}
+}
+
+func evaluateSimpleCommand(policy ResolvedPolicy, toolName, command string) Decision {
+	for _, source := range policy.Sources {
+		for _, behavior := range []string{"deny", "ask", "allow"} {
+			for _, rule := range source.Policy.Rules {
+				if rule.Decision != behavior || !matchesTool(rule.Tools, toolName) {
+					continue
+				}
+				if pattern, ok := matchingCommand(rule, command); ok {
 					return Decision{
 						Behavior: rule.Decision,
 						Source:   source.Name,
@@ -102,6 +183,25 @@ func isComplexShellCommand(command string) bool {
 		strings.Contains(command, "<") ||
 		strings.Contains(command, "*") ||
 		strings.Contains(command, "?")
+}
+
+func hasRemoteShellPipe(command string) bool {
+	segments := splitShellSegments(command)
+	if len(segments) < 2 {
+		return false
+	}
+
+	for i := 0; i < len(segments)-1; i++ {
+		left := strings.Join(strings.Fields(segments[i]), " ")
+		right := strings.Join(strings.Fields(segments[i+1]), " ")
+		if (strings.HasPrefix(left, "curl ") || strings.HasPrefix(left, "wget ")) &&
+			(right == "sh" || strings.HasPrefix(right, "sh ") ||
+				right == "bash" || strings.HasPrefix(right, "bash ") ||
+				right == "zsh" || strings.HasPrefix(right, "zsh ")) {
+			return true
+		}
+	}
+	return false
 }
 
 func splitShellSegments(command string) []string {

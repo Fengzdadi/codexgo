@@ -71,7 +71,9 @@ codexgo manual --scope project
 
 The `go` profile currently denies dangerous commands such as `rm -rf /`, `rm -rf ~`, `sudo rm`, `chmod -R 777 /`, `chown -R`, `dd if=`, `mkfs`, `diskutil erase`, `git reset --hard`, `git clean -fdx`, and forced pushes. It asks for destructive local commands such as `rm -rf` and `find . -delete`, plus sensitive commands such as `git push`, `git rebase`, `git commit --amend`, `npm publish`, `gh release delete`, `docker system prune`, and `brew uninstall`.
 
-If an unmatched command contains complex shell structure such as pipes, `&&`, redirection, command substitution, or wildcards, the `go` profile asks instead of allowing it.
+For compound commands such as `cmd1 && cmd2` or `cmd1 | cmd2`, CodexGo checks each segment. If any segment asks or denies, the whole command asks or denies; if every segment is allowed, the whole command is allowed. Remote shell execution such as `curl ... | sh` is denied.
+
+If an unmatched simple command contains complex shell structure such as redirection, command substitution, or wildcards, the `go` profile asks instead of allowing it.
 
 Profile behavior at a glance:
 
@@ -91,7 +93,10 @@ flowchart LR
   goRisk -->|dangerous| goDeny["deny"]
   goRisk -->|sensitive| goAsk["ask Codex user"]
   goRisk -->|simple unmatched| goAllow["allow"]
-  goRisk -->|complex shell| goAsk
+  goRisk -->|compound command| goSegments["check each segment"]
+  goSegments -->|any ask| goAsk
+  goSegments -->|any deny| goDeny
+  goSegments -->|all allow| goAllow
 ```
 
 ## Policy JSON
