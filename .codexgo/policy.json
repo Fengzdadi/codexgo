@@ -64,7 +64,8 @@
       "match": "prefix",
       "commands": [
         "npm install lodash",
-        "git commit"
+        "git commit",
+        "git add"
       ]
     },
     {
