@@ -6,13 +6,11 @@ CodexGo is a small policy layer for Codex `PermissionRequest` hooks. It lets Cod
 
 ## Quick Start
 
-Install CodexGo:
+Install CodexGo on macOS:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | sh
 ```
-
-The install script currently supports macOS only. It downloads the macOS release binary and places it in `~/.local/bin/codexgo`. If `~/.local/bin` is not in your `PATH`, the installer prints the shell command to add it.
 
 Verify the install:
 
@@ -29,153 +27,64 @@ codexgo init --scope user
 
 Start a new Codex session after running `init` so Codex reloads hooks.
 
-To install a specific version, pass `CODEXGO_VERSION` to the installer:
+## Smooth Mode
+
+If you want Codex to work with fewer permission interruptions, enable the `go` profile for your workspace:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | CODEXGO_VERSION=v0.1.2 sh
+codexgo go --scope project
 ```
 
-Or download the installer first with `curl`:
+In `go` profile, CodexGo allows most simple development commands, still asks for sensitive commands such as `git push`, and denies dangerous commands such as `rm -rf /`.
+
+Return to manual mode with:
 
 ```sh
-curl -fsSLo install.sh https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh
-CODEXGO_VERSION=v0.1.2 sh install.sh
+codexgo manual --scope project
 ```
 
-You can also download `codexgo-darwin-arm64` or `codexgo-darwin-amd64` directly from the GitHub Releases page.
+Profile behavior at a glance:
 
-Or install with Go:
+```mermaid
+flowchart LR
+  command["Codex asks to run a command"]
 
-```sh
-go install github.com/fengzdadi/codexgo@latest
+  command --> manual["manual profile"]
+  manual --> manualRule{"explicit rule?"}
+  manualRule -->|allow| manualAllow["allow"]
+  manualRule -->|ask| manualAsk["ask Codex user"]
+  manualRule -->|deny| manualDeny["deny"]
+  manualRule -->|no match| manualAsk
+
+  command --> go["go profile"]
+  go --> goRisk{"risk match?"}
+  goRisk -->|dangerous| goDeny["deny"]
+  goRisk -->|sensitive| goAsk["ask Codex user"]
+  goRisk -->|simple unmatched| goAllow["allow"]
+  goRisk -->|complex shell| goAsk
 ```
 
-To install a specific version with Go:
+## Common Commands
 
-```sh
-go install github.com/fengzdadi/codexgo@v0.1.2
-```
-
-Make sure your Go binary directory is on your `PATH`, usually `$(go env GOPATH)/bin`.
-
-Or install it only for this project:
-
-```sh
-codexgo init --scope project
-```
-
-Add project-specific approvals:
+Add explicit rules:
 
 ```sh
 codexgo allow --scope project "git add"
-codexgo allow --scope project "git commit"
-codexgo deny --scope project "git push"
+codexgo ask --scope project "git push"
+codexgo deny --scope user "git reset --hard"
 codexgo remove --scope project "git push"
 ```
 
-Check what will happen before using Codex:
+Inspect decisions:
 
 ```sh
 codexgo explain "git commit -m test"
 codexgo list
 ```
 
-`init` writes:
+## How It Works
 
-- `config.toml` with `codex_hooks = true`
-- `hooks.json` with a `PermissionRequest` hook for `Bash`
-- `.codexgo/policy.json` for rules you explicitly add
-
-If `hooks.json` already exists, CodexGo refuses to overwrite it. Add this block manually instead:
-
-```json
-{
-  "hooks": {
-    "PermissionRequest": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/absolute/path/to/codexgo decide",
-            "timeout": 5,
-            "statusMessage": "Checking CodexGo policy"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-## Project Example
-
-For a repository-level setup, `codexgo init --scope project` creates project-local Codex hook files:
-
-```text
-<repo>/.codex/config.toml
-<repo>/.codex/hooks.json
-<repo>/.codexgo/policy.json
-```
-
-Example `.codex/config.toml`:
-
-```toml
-[features]
-codex_hooks = true
-```
-
-Example `.codex/hooks.json`:
-
-```json
-{
-  "hooks": {
-    "PermissionRequest": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "codexgo decide",
-            "timeout": 5,
-            "statusMessage": "Checking CodexGo policy"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Example `.codexgo/policy.json`:
-
-```json
-{
-  "defaultDecision": "ask",
-  "rules": [
-    {
-      "name": "codexgo allow prefix Bash commands",
-      "decision": "allow",
-      "tools": ["Bash"],
-      "match": "prefix",
-      "commands": ["git add", "git commit"]
-    },
-    {
-      "name": "codexgo ask prefix Bash commands",
-      "decision": "ask",
-      "tools": ["Bash"],
-      "match": "prefix",
-      "commands": ["git push"]
-    }
-  ]
-}
-```
-
-Do not commit generated `.codex/hooks.json` if it contains a local absolute path such as `/Users/.../codexgo`. Prefer committing `.codexgo/policy.json` only when the rules represent project-wide policy rather than personal workflow preferences.
-
-## Why this exists
-
-Codex App can ask for approval many times during ordinary development. Codex already exposes a hook point before the approval prompt is shown. CodexGo installs a handler for that hook:
+Codex App can ask for approval many times during ordinary development. CodexGo installs a hook handler before the approval prompt:
 
 ```text
 Codex PermissionRequest -> codexgo decide -> allow / deny / no decision
@@ -185,159 +94,27 @@ No decision means Codex keeps its normal approval dialog.
 
 CodexGo only handles Codex `PermissionRequest` hooks. It does not disable operating system permissions, Git protections, network authentication, or any separate sandbox layer outside Codex hooks.
 
-## Policy
+## Docs
 
-Most users should add rules with the CLI:
+- [Install](docs/install.md)
+- [Policy and profiles](docs/policy.md)
+- [Project setup](docs/project-setup.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
-```sh
-codexgo allow "git status"
-codexgo allow --scope project "npm run lint"
-codexgo deny --scope user "git reset --hard"
-codexgo ask --match exact "npm install lodash"
-codexgo remove --scope project "git push"
-```
-
-By default these commands use `--scope user`, `--tool Bash`, and `--match prefix`.
-
-User policy lives at:
-
-```text
-~/.codexgo/policy.json
-```
-
-Project policy lives at:
-
-```text
-<repo>/.codexgo/policy.json
-```
-
-CodexGo resolves policy from most specific to least specific:
-
-```text
-project policy > user policy > built-in defaults
-```
-
-Within one policy source, stricter decisions win:
-
-```text
-deny > ask > allow
-```
-
-Project rules are meant to override user-wide preferences for a specific repository. Built-in defaults are not copied into policy files, so local policy only stores rules you explicitly add.
-
-Built-in defaults currently auto-allow read-only discovery commands such as `pwd`, `ls`, `rg`, `git status`, `git diff`, `git log`, and common local verification commands such as `go test`, `npm test`, and `pytest`. Destructive patterns such as `git reset --hard` and remote shell execution patterns such as `curl | sh` are denied.
-
-A policy looks like:
-
-```json
-{
-  "defaultDecision": "ask",
-  "rules": [
-    {
-      "name": "codexgo allow prefix Bash commands",
-      "decision": "allow",
-      "tools": ["Bash"],
-      "match": "prefix",
-      "commands": ["git add", "git commit"]
-    }
-  ]
-}
-```
-
-Rule decisions:
-
-- `allow`: CodexGo approves the request and Codex does not show the prompt.
-- `deny`: CodexGo blocks the request.
-- `ask`: CodexGo declines to decide, so Codex shows the normal prompt.
-
-Use `remove` when you want to delete a local rule entirely. Use `ask` when you want to keep an explicit rule that forces CodexGo to hand the command back to Codex for normal prompting.
-
-Rule match modes:
-
-- `exact`: command must match exactly after whitespace normalization.
-- `prefix`: command must equal the pattern or start with `pattern + space`.
-- `contains`: command must contain the pattern.
-
-The CLI writes ordinary policy JSON, so you can still edit the file by hand for bulk changes. An empty policy is valid:
-
-```json
-{
-  "defaultDecision": "ask",
-  "rules": []
-}
-```
-
-## Inspect Decisions
-
-Use `explain` to see why a command would be allowed, denied, or sent back to the Codex prompt:
+## Minimal Project Example
 
 ```sh
-codexgo explain "git status --short"
-codexgo explain "git commit -m test"
+codexgo init --scope project
+codexgo go --scope project
 codexgo explain "npm install react"
+codexgo explain "git push"
+codexgo explain "rm -rf /"
 ```
 
-Example:
+Example outcomes:
 
 ```text
-Command: git commit -m test
-Tool: Bash
-Decision: allow
-Source: project policy
-Rule: codexgo allow prefix Bash commands
-Match: prefix
-Pattern: git commit
-Reason: matched project policy rule "codexgo allow prefix Bash commands"
+npm install react -> allow
+git push          -> ask
+rm -rf /          -> deny
 ```
-
-Use `list` to view the effective policy stack:
-
-```sh
-codexgo list
-```
-
-## Test the hook handler
-
-```sh
-printf '%s\n' '{
-  "session_id": "demo",
-  "cwd": "'$PWD'",
-  "hook_event_name": "PermissionRequest",
-  "tool_name": "Bash",
-  "tool_input": {
-    "command": "git status",
-    "description": "Check repository state"
-  }
-}' | codexgo decide
-```
-
-Expected output from the built-in defaults:
-
-```json
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": {
-      "behavior": "allow"
-    }
-  }
-}
-```
-
-View audit logs:
-
-```sh
-codexgo audit
-```
-
-## Troubleshooting
-
-If Codex still prompts for a command that `codexgo explain` says should be allowed:
-
-- Start a new Codex session for the workspace so hooks are reloaded.
-- Confirm hooks are enabled in `.codex/config.toml` or `~/.codex/config.toml`.
-- Confirm `hooks.json` points to the absolute path of the `codexgo` binary.
-- Check whether `.codexgo/audit.jsonl` received a new entry.
-- Remember that CodexGo does not revoke sandbox approvals already granted in the surrounding Codex runtime or current session.
-
-If the audit log has no new entry, Codex did not invoke the hook. If the audit log shows `decision: allow` but Codex still prompts, the prompt is coming from another permission or sandbox layer.

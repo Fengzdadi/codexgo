@@ -4,6 +4,16 @@ All notable changes to CodexGo are documented here.
 
 ## Unreleased
 
+### Added
+
+- Added `codexgo go` to enable a built-in `go` profile for trusted development sessions.
+- Added `codexgo manual` to clear a policy profile and return unmatched commands to the normal Codex prompt.
+- Added `go` profile risk rules that deny dangerous commands, ask for sensitive commands, and allow unmatched simple commands.
+
+### Changed
+
+- Shortened the README and moved detailed installation, policy, project setup, and troubleshooting docs into `docs/`.
+
 ## v0.1.2 - 2026-04-28
 
 ### Added
