@@ -32,6 +32,8 @@ type Rule struct {
 type ResolvedPolicy struct {
 	DefaultDecision string
 	Profile         string
+	ProfileSource   string
+	ProfilePath     string
 	Sources         []PolicySource
 }
 

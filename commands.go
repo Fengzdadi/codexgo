@@ -167,6 +167,44 @@ func runList(args []string, out io.Writer) error {
 	return nil
 }
 
+func runProfile(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("profile", flag.ContinueOnError)
+	cwd := fs.String("cwd", "", "project directory to load project policy from")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		return errors.New("profile does not accept command arguments")
+	}
+	if *cwd == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		*cwd = wd
+	}
+
+	policy, _, err := loadPolicy(*cwd)
+	if err != nil {
+		return err
+	}
+
+	profile := policy.Profile
+	source := policy.ProfileSource
+	path := policy.ProfilePath
+	if profile == "" {
+		profile = "manual"
+		source = "default"
+		path = "none"
+	}
+
+	fmt.Fprintf(out, "Effective profile: %s\n", profile)
+	fmt.Fprintf(out, "Source: %s\n", source)
+	fmt.Fprintf(out, "Policy: %s\n", path)
+	fmt.Fprintf(out, "Default decision: %s\n", policy.DefaultDecision)
+	return nil
+}
+
 func runGoCommand(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("go", flag.ContinueOnError)
 	scope := fs.String("scope", "user", "policy scope: user or project")

@@ -83,6 +83,7 @@ codexgo remove --scope project "git push"
 Inspect decisions:
 
 ```sh
+codexgo profile
 codexgo explain "git commit -m test"
 codexgo list
 ```

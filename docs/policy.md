@@ -170,5 +170,15 @@ Reason: matched project policy rule "codexgo allow prefix Bash commands"
 Use `list` to view the effective policy stack:
 
 ```sh
+codexgo profile
 codexgo list
+```
+
+`profile` prints only the effective profile and where it came from:
+
+```text
+Effective profile: go
+Source: project policy
+Policy: /path/to/repo/.codexgo/policy.json
+Default decision: ask
 ```

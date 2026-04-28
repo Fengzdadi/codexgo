@@ -4,6 +4,10 @@ All notable changes to CodexGo are documented here.
 
 ## Unreleased
 
+### Added
+
+- Added `codexgo profile` to show the effective profile, source, policy file, and default decision.
+
 ### Changed
 
 - In `go` profile, compound shell commands are now evaluated segment by segment instead of always asking.

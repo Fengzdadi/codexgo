@@ -35,6 +35,7 @@ cp ./bin/codexgo ~/.local/bin/codexgo
 Run:
 
 ```sh
+codexgo profile
 codexgo list
 ```
 

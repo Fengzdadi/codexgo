@@ -30,11 +30,14 @@ func loadPolicy(cwd string) (ResolvedPolicy, []string, error) {
 		if next.DefaultDecision != "" && resolved.DefaultDecision == "" {
 			resolved.DefaultDecision = next.DefaultDecision
 		}
+		sourceName := policySourceName(path, cwd)
 		if next.Profile != "" && resolved.Profile == "" {
 			resolved.Profile = next.Profile
+			resolved.ProfileSource = sourceName
+			resolved.ProfilePath = path
 		}
 		resolved.Sources = append(resolved.Sources, PolicySource{
-			Name:   policySourceName(path, cwd),
+			Name:   sourceName,
 			Path:   path,
 			Policy: next,
 		})

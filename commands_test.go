@@ -233,6 +233,62 @@ func TestGoCommandSetsProjectProfile(t *testing.T) {
 	}
 }
 
+func TestProfileCommandShowsProjectProfile(t *testing.T) {
+	home := t.TempDir()
+	cwd := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := atomicWriteJSON(filepath.Join(cwd, ".codexgo", "policy.json"), Policy{
+		DefaultDecision: defaultDecision,
+		Profile:         goProfile,
+		Rules:           []Rule{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := runProfile([]string{"--cwd", cwd}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	for _, want := range []string{
+		"Effective profile: go",
+		"Source: project policy",
+		filepath.Join(cwd, ".codexgo", "policy.json"),
+		"Default decision: ask",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in output:\n%s", want, text)
+		}
+	}
+}
+
+func TestProfileCommandShowsManualDefault(t *testing.T) {
+	home := t.TempDir()
+	cwd := t.TempDir()
+	t.Setenv("HOME", home)
+
+	var out bytes.Buffer
+	if err := runProfile([]string{"--cwd", cwd}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	for _, want := range []string{
+		"Effective profile: manual",
+		"Source: default",
+		"Policy: none",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in output:\n%s", want, text)
+		}
+	}
+}
+
 func TestManualCommandClearsProjectProfile(t *testing.T) {
 	home := t.TempDir()
 	cwd := t.TempDir()
