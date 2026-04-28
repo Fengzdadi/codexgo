@@ -7,10 +7,13 @@ All notable changes to CodexGo are documented here.
 ### Changed
 
 - In `go` profile, compound shell commands are now evaluated segment by segment instead of always asking.
+- Environment-variable prefixes such as `NODE_ENV=test npm test` are now evaluated by the underlying command.
+- Quoted shell operators such as `echo "a | b"` no longer count as compound shell syntax.
 
 ### Security
 
 - Remote shell execution patterns such as `curl ... | sh` are denied before segment fallback evaluation.
+- Download-to-file commands, redirection, complex environment assignments, and subshell commands ask in `go` profile.
 
 ## v0.1.3 - 2026-04-28
 

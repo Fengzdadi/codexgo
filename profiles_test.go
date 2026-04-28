@@ -163,3 +163,121 @@ func TestGoProfileAllowsNonShellPipeWhenSegmentsAllow(t *testing.T) {
 		t.Fatalf("expected go profile allow for non-shell pipe, got %#v", decision)
 	}
 }
+
+func TestGoProfileParsesEnvPrefixBeforeEvaluatingCommand(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Profile:         goProfile,
+		Sources: []PolicySource{
+			{Name: "go profile", Policy: goProfilePolicy()},
+			{Name: "built-in defaults", Policy: builtInPolicy()},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", "NODE_ENV=test npm test")
+	if decision.Behavior != "allow" || decision.Source != "built-in defaults" {
+		t.Fatalf("expected env-prefixed npm test to match built-in allow, got %#v", decision)
+	}
+}
+
+func TestGoProfileAsksSensitiveCommandWithEnvPrefix(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Profile:         goProfile,
+		Sources: []PolicySource{
+			{Name: "go profile", Policy: goProfilePolicy()},
+			{Name: "built-in defaults", Policy: builtInPolicy()},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", "GIT_TRACE=1 git push origin main")
+	if decision.Behavior != "ask" || decision.RuleName != "ask sensitive go profile commands" {
+		t.Fatalf("expected env-prefixed git push to ask, got %#v", decision)
+	}
+}
+
+func TestGoProfileAsksComplexEnvAssignment(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Profile:         goProfile,
+		Sources: []PolicySource{
+			{Name: "go profile", Policy: goProfilePolicy()},
+			{Name: "built-in defaults", Policy: builtInPolicy()},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", "TOKEN=$(cat secret) npm test")
+	if decision.Behavior != "ask" {
+		t.Fatalf("expected complex env assignment to ask, got %#v", decision)
+	}
+}
+
+func TestGoProfileDoesNotTreatQuotedPipeAsCompound(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Profile:         goProfile,
+		Sources: []PolicySource{
+			{Name: "go profile", Policy: goProfilePolicy()},
+			{Name: "built-in defaults", Policy: builtInPolicy()},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", `echo "a | b"`)
+	if decision.Behavior != "allow" {
+		t.Fatalf("expected quoted pipe to stay simple and allow, got %#v", decision)
+	}
+}
+
+func TestGoProfileAsksForRedirection(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Profile:         goProfile,
+		Sources: []PolicySource{
+			{Name: "go profile", Policy: goProfilePolicy()},
+			{Name: "built-in defaults", Policy: builtInPolicy()},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", "npm test > package.json")
+	if decision.Behavior != "ask" {
+		t.Fatalf("expected redirection to ask, got %#v", decision)
+	}
+}
+
+func TestGoProfileAsksForDownloadToFile(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Profile:         goProfile,
+		Sources: []PolicySource{
+			{Name: "go profile", Policy: goProfilePolicy()},
+			{Name: "built-in defaults", Policy: builtInPolicy()},
+		},
+	}
+
+	for _, command := range []string{
+		"curl -L https://example.com/config -o .env",
+		"curl -O https://example.com/archive.tgz",
+		"wget https://example.com/config -O .env",
+	} {
+		decision := evaluate(policy, "Bash", command)
+		if decision.Behavior != "ask" {
+			t.Fatalf("expected download-to-file command to ask, got %#v for %q", decision, command)
+		}
+	}
+}
+
+func TestGoProfileAsksForSubshell(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Profile:         goProfile,
+		Sources: []PolicySource{
+			{Name: "go profile", Policy: goProfilePolicy()},
+			{Name: "built-in defaults", Policy: builtInPolicy()},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", "(cd frontend && npm test)")
+	if decision.Behavior != "ask" {
+		t.Fatalf("expected subshell to ask, got %#v", decision)
+	}
+}

@@ -73,7 +73,9 @@ The `go` profile currently denies dangerous commands such as `rm -rf /`, `rm -rf
 
 For compound commands such as `cmd1 && cmd2` or `cmd1 | cmd2`, CodexGo checks each segment. If any segment asks or denies, the whole command asks or denies; if every segment is allowed, the whole command is allowed. Remote shell execution such as `curl ... | sh` is denied.
 
-If an unmatched simple command contains complex shell structure such as redirection, command substitution, or wildcards, the `go` profile asks instead of allowing it.
+The `go` profile asks instead of allowing when a command writes through redirection, downloads directly to a file with `curl` or `wget`, uses a complex environment assignment such as `TOKEN=$(...)`, includes command substitution or wildcards, or runs in a subshell such as `(cd app && npm test)`.
+
+Environment-variable prefixes are evaluated by the underlying command, so `NODE_ENV=test npm test` is treated like `npm test`. Quoted operators do not count as shell control syntax, so `echo "a | b"` stays a simple command.
 
 Profile behavior at a glance:
 
