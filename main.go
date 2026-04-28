@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	version         = "v0.1.0"
 	defaultDecision = "ask"
 	userPolicyPath  = ".codexgo/policy.json"
 	auditPath       = ".codexgo/audit.jsonl"
@@ -101,6 +102,8 @@ func main() {
 		err = writeJSON(os.Stdout, samplePolicy())
 	case "audit":
 		err = runAudit()
+	case "version":
+		fmt.Fprintf(os.Stdout, "CodexGo %s\n", version)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -125,7 +128,8 @@ Usage:
   codexgo list [--cwd /path/to/project]
   codexgo decide
   codexgo sample-policy
-  codexgo audit`)
+  codexgo audit
+  codexgo version`)
 }
 
 func runDecide(in io.Reader, out io.Writer) error {

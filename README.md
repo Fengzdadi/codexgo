@@ -4,37 +4,37 @@ CodexGo is a small policy layer for Codex `PermissionRequest` hooks. It lets Cod
 
 ## Quick Start
 
-Build the CLI:
+Install CodexGo:
 
 ```sh
-go build -o ./bin/codexgo .
+go install github.com/fengzdadi/codexgo@v0.1.0
 ```
 
 Install the hook for your Codex user config:
 
 ```sh
-./bin/codexgo init --scope user --bin "$(pwd)/bin/codexgo"
+codexgo init --scope user
 ```
 
 Or install it only for this project:
 
 ```sh
-./bin/codexgo init --scope project --bin "$(pwd)/bin/codexgo"
+codexgo init --scope project
 ```
 
 Add project-specific approvals:
 
 ```sh
-./bin/codexgo allow --scope project "git add"
-./bin/codexgo allow --scope project "git commit"
-./bin/codexgo deny --scope project "git push"
+codexgo allow --scope project "git add"
+codexgo allow --scope project "git commit"
+codexgo deny --scope project "git push"
 ```
 
 Check what will happen before using Codex:
 
 ```sh
-./bin/codexgo explain "git commit -m test"
-./bin/codexgo list
+codexgo explain "git commit -m test"
+codexgo list
 ```
 
 `init` writes:
@@ -82,10 +82,10 @@ CodexGo only handles Codex `PermissionRequest` hooks. It does not disable operat
 Most users should add rules with the CLI:
 
 ```sh
-./bin/codexgo allow "git status"
-./bin/codexgo allow --scope project "npm run lint"
-./bin/codexgo deny --scope user "git reset --hard"
-./bin/codexgo ask --match exact "npm install lodash"
+codexgo allow "git status"
+codexgo allow --scope project "npm run lint"
+codexgo deny --scope user "git reset --hard"
+codexgo ask --match exact "npm install lodash"
 ```
 
 By default these commands use `--scope user`, `--tool Bash`, and `--match prefix`.
@@ -149,9 +149,9 @@ The CLI writes ordinary policy JSON, so you can still edit the file by hand for 
 Use `explain` to see why a command would be allowed, denied, or sent back to the Codex prompt:
 
 ```sh
-./bin/codexgo explain "git status --short"
-./bin/codexgo explain "git commit -m test"
-./bin/codexgo explain "npm install react"
+codexgo explain "git status --short"
+codexgo explain "git commit -m test"
+codexgo explain "npm install react"
 ```
 
 Example:
@@ -170,7 +170,7 @@ Reason: matched project policy rule "codexgo allow prefix Bash commands"
 Use `list` to view the effective policy stack:
 
 ```sh
-./bin/codexgo list
+codexgo list
 ```
 
 ## Test the hook handler
@@ -185,7 +185,7 @@ printf '%s\n' '{
     "command": "git status",
     "description": "Check repository state"
   }
-}' | ./bin/codexgo decide
+}' | codexgo decide
 ```
 
 Expected output from the built-in defaults:
@@ -204,7 +204,7 @@ Expected output from the built-in defaults:
 View audit logs:
 
 ```sh
-./bin/codexgo audit
+codexgo audit
 ```
 
 ## Troubleshooting

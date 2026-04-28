@@ -225,6 +225,12 @@ func TestListShowsBuiltInAndProjectPolicy(t *testing.T) {
 	}
 }
 
+func TestVersionConstant(t *testing.T) {
+	if version != "v0.1.0" {
+		t.Fatalf("unexpected version: %s", version)
+	}
+}
+
 func TestPolicyCommandAddsUserAllowRule(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
