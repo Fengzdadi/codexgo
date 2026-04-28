@@ -20,7 +20,13 @@ codexgo doctor
 codexgo explain "git status"
 ```
 
-Install the hook for your Codex user config:
+Install the hook for this project:
+
+```sh
+codexgo init --scope project
+```
+
+Or install it globally for your Codex user config:
 
 ```sh
 codexgo init --scope user
