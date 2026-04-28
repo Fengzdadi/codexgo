@@ -302,7 +302,7 @@ func validDecision(decision string) bool {
 }
 
 func loadPolicy(cwd string) (Policy, []string, error) {
-	policy := Policy{DefaultDecision: defaultDecision}
+	policy := builtInPolicy()
 	var loaded []string
 
 	for _, path := range policyPaths(cwd) {
@@ -315,10 +315,6 @@ func loadPolicy(cwd string) (Policy, []string, error) {
 		}
 		policy = mergePolicy(policy, next)
 		loaded = append(loaded, path)
-	}
-
-	if len(loaded) == 0 {
-		policy = samplePolicy()
 	}
 	return policy, loaded, nil
 }
@@ -358,7 +354,7 @@ func mergePolicy(base, next Policy) Policy {
 	return base
 }
 
-func samplePolicy() Policy {
+func builtInPolicy() Policy {
 	return Policy{
 		DefaultDecision: defaultDecision,
 		Rules: []Rule{
@@ -412,6 +408,17 @@ func samplePolicy() Policy {
 			},
 		},
 	}
+}
+
+func emptyPolicy() Policy {
+	return Policy{
+		DefaultDecision: defaultDecision,
+		Rules:           []Rule{},
+	}
+}
+
+func samplePolicy() Policy {
+	return builtInPolicy()
 }
 
 func runPolicyCommand(decision string, args []string) error {
@@ -637,7 +644,7 @@ func runInit(args []string) error {
 	}
 	policyFile := filepath.Join(policyDir, "policy.json")
 	if _, err := os.Stat(policyFile); os.IsNotExist(err) {
-		if err := atomicWriteJSON(policyFile, samplePolicy()); err != nil {
+		if err := atomicWriteJSON(policyFile, emptyPolicy()); err != nil {
 			return err
 		}
 	}

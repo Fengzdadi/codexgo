@@ -85,18 +85,20 @@ Project policy lives at:
 <repo>/.codexgo/policy.json
 ```
 
-Project rules are loaded after user rules. A policy looks like:
+CodexGo always starts with built-in defaults, then loads user rules, then project rules. The built-in defaults are not copied into policy files, so local policy only stores rules you explicitly add.
+
+A policy looks like:
 
 ```json
 {
   "defaultDecision": "ask",
   "rules": [
     {
-      "name": "allow read-only discovery",
+      "name": "codexgo allow prefix Bash commands",
       "decision": "allow",
       "tools": ["Bash"],
       "match": "prefix",
-      "commands": ["pwd", "ls", "rg", "git status", "git diff"]
+      "commands": ["git add", "git commit"]
     }
   ]
 }
@@ -114,7 +116,14 @@ Rule match modes:
 - `prefix`: command must equal the pattern or start with `pattern + space`.
 - `contains`: command must contain the pattern.
 
-The CLI writes ordinary policy JSON, so you can still edit the file by hand for bulk changes.
+The CLI writes ordinary policy JSON, so you can still edit the file by hand for bulk changes. An empty policy is valid:
+
+```json
+{
+  "defaultDecision": "ask",
+  "rules": []
+}
+```
 
 ## Test the hook handler
 
@@ -131,7 +140,7 @@ printf '%s\n' '{
 }' | ./bin/codexgo decide
 ```
 
-Expected output for the starter policy:
+Expected output from the built-in defaults:
 
 ```json
 {
