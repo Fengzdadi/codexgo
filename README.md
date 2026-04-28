@@ -180,6 +180,7 @@ codexgo allow "git status"
 codexgo allow --scope project "npm run lint"
 codexgo deny --scope user "git reset --hard"
 codexgo ask --match exact "npm install lodash"
+codexgo remove --scope project "git push"
 ```
 
 By default these commands use `--scope user`, `--tool Bash`, and `--match prefix`.
@@ -222,6 +223,8 @@ Rule decisions:
 - `allow`: CodexGo approves the request and Codex does not show the prompt.
 - `deny`: CodexGo blocks the request.
 - `ask`: CodexGo declines to decide, so Codex shows the normal prompt.
+
+Use `remove` when you want to delete a local rule entirely. Use `ask` when you want to keep an explicit rule that forces CodexGo to hand the command back to Codex for normal prompting.
 
 Rule match modes:
 

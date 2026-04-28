@@ -381,6 +381,42 @@ func TestPolicyCommandOverridesExistingCommandDecision(t *testing.T) {
 	}
 }
 
+func TestRemoveCommandDeletesCommandAndEmptyRule(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := runPolicyCommand("allow", []string{"--scope", "user", "git push"}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := runRemoveCommand([]string{"--scope", "user", "git push"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(out.String(), `Removed from user policy: "git push"`) {
+		t.Fatalf("expected remove feedback, got:\n%s", out.String())
+	}
+	policy := readTestPolicy(t, filepath.Join(home, ".codexgo", "policy.json"))
+	if len(policy.Rules) != 0 {
+		t.Fatalf("expected empty rules after remove, got %#v", policy.Rules)
+	}
+}
+
+func TestRemoveCommandNoChangeForMissingCommand(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	var out bytes.Buffer
+	if err := runRemoveCommand([]string{"--scope", "user", "git push"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(out.String(), `No change: user policy has no rule for "git push"`) {
+		t.Fatalf("expected no-change feedback, got:\n%s", out.String())
+	}
+}
+
 func TestPolicyCommandAddsProjectDenyRule(t *testing.T) {
 	home := t.TempDir()
 	cwd := t.TempDir()

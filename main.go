@@ -94,6 +94,8 @@ func main() {
 		err = runInit(os.Args[2:])
 	case "allow", "deny", "ask":
 		err = runPolicyCommand(os.Args[1], os.Args[2:], os.Stdout)
+	case "remove":
+		err = runRemoveCommand(os.Args[2:], os.Stdout)
 	case "explain":
 		err = runExplain(os.Args[2:], os.Stdout)
 	case "list":
@@ -124,6 +126,7 @@ Usage:
   codexgo allow [--scope user|project] [--match exact|prefix|contains] <command>
   codexgo deny  [--scope user|project] [--match exact|prefix|contains] <command>
   codexgo ask   [--scope user|project] [--match exact|prefix|contains] <command>
+  codexgo remove [--scope user|project] [--match exact|prefix|contains] <command>
   codexgo explain [--cwd /path/to/project] [--tool Bash] <command>
   codexgo list [--cwd /path/to/project]
   codexgo decide
@@ -644,6 +647,68 @@ func runPolicyCommand(decision string, args []string, out io.Writer) error {
 	return nil
 }
 
+func runRemoveCommand(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("remove", flag.ContinueOnError)
+	scope := fs.String("scope", "user", "policy scope: user or project")
+	match := fs.String("match", "prefix", "match mode: exact, prefix, or contains")
+	tool := fs.String("tool", "Bash", "Codex hook tool name")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if !validMatch(*match) {
+		return fmt.Errorf("invalid match %q", *match)
+	}
+	if fs.NArg() == 0 {
+		return errors.New("missing command")
+	}
+
+	command := strings.Join(fs.Args(), " ")
+	command = strings.Join(strings.Fields(command), " ")
+	if command == "" {
+		return errors.New("empty command")
+	}
+
+	path, err := policyPathForScope(*scope)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	changed := false
+	if err := withPolicyLock(path, func() error {
+		policy, ok, err := readPolicy(path)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			policy = Policy{DefaultDecision: defaultDecision}
+		}
+		if policy.DefaultDecision == "" {
+			policy.DefaultDecision = defaultDecision
+		}
+
+		changed = removeCommandRule(&policy, []string{*tool}, *match, command)
+		if !changed {
+			return nil
+		}
+		return atomicWriteJSON(path, policy)
+	}); err != nil {
+		return err
+	}
+
+	if !changed {
+		fmt.Fprintf(out, "No change: %s policy has no rule for %q (match=%s, tool=%s)\n", *scope, command, *match, *tool)
+		fmt.Fprintf(out, "Policy: %s\n", path)
+		return nil
+	}
+
+	fmt.Fprintf(out, "Removed from %s policy: %q (match=%s, tool=%s)\n", *scope, command, *match, *tool)
+	fmt.Fprintf(out, "Policy: %s\n", path)
+	return nil
+}
+
 func validMatch(match string) bool {
 	return match == "exact" || match == "prefix" || match == "contains"
 }
@@ -706,6 +771,34 @@ func removeCommandFromOtherRules(policy *Policy, rule Rule, command string) bool
 		}
 
 		if !sameStrings(existing.Tools, rule.Tools) {
+			nextRules = append(nextRules, existing)
+			continue
+		}
+
+		nextCommands := existing.Commands[:0]
+		for _, existingCommand := range existing.Commands {
+			if strings.Join(strings.Fields(existingCommand), " ") == command {
+				changed = true
+				continue
+			}
+			nextCommands = append(nextCommands, existingCommand)
+		}
+		existing.Commands = nextCommands
+		if len(existing.Commands) > 0 {
+			nextRules = append(nextRules, existing)
+		}
+	}
+
+	policy.Rules = nextRules
+	return changed
+}
+
+func removeCommandRule(policy *Policy, tools []string, match, command string) bool {
+	changed := false
+	nextRules := policy.Rules[:0]
+
+	for _, existing := range policy.Rules {
+		if existing.Match != match || !sameStrings(existing.Tools, tools) {
 			nextRules = append(nextRules, existing)
 			continue
 		}
