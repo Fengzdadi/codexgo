@@ -2,7 +2,7 @@
 
 All notable changes to CodexGo are documented here.
 
-## Unreleased
+## v0.1.4 - 2026-04-28
 
 ### Added
 

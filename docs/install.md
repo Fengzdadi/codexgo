@@ -30,14 +30,14 @@ Start a new Codex session after running `init` so Codex reloads hooks.
 Pass `CODEXGO_VERSION` to the installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | CODEXGO_VERSION=v0.1.3 sh
+curl -fsSL https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh | CODEXGO_VERSION=v0.1.4 sh
 ```
 
 Or download the installer first:
 
 ```sh
 curl -fsSLo install.sh https://raw.githubusercontent.com/fengzdadi/codexgo/main/install.sh
-CODEXGO_VERSION=v0.1.3 sh install.sh
+CODEXGO_VERSION=v0.1.4 sh install.sh
 ```
 
 You can also download `codexgo-darwin-arm64` or `codexgo-darwin-amd64` directly from the GitHub Releases page.
@@ -51,7 +51,7 @@ go install github.com/fengzdadi/codexgo@latest
 To install a specific version:
 
 ```sh
-go install github.com/fengzdadi/codexgo@v0.1.3
+go install github.com/fengzdadi/codexgo@v0.1.4
 ```
 
 Make sure your Go binary directory is on your `PATH`, usually `$(go env GOPATH)/bin`.
