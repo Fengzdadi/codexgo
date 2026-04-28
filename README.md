@@ -2,6 +2,8 @@
 
 CodexGo is a small policy layer for Codex `PermissionRequest` hooks. It lets Codex auto-approve low-risk shell approvals, deny known-dangerous patterns, and fall back to the normal Codex prompt when no rule matches.
 
+[Changelog](CHANGELOG.md)
+
 ## Quick Start
 
 Install CodexGo:
