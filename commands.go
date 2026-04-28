@@ -110,6 +110,9 @@ func runExplain(args []string, out io.Writer) error {
 			fmt.Fprintf(out, "  - %s\n", path)
 		}
 	}
+	if decision.Source == "go profile" {
+		printOverrideHelp(out, "project", *tool, command, decision)
+	}
 	return nil
 }
 
@@ -343,6 +346,13 @@ func runPolicyCommand(decision string, args []string, out io.Writer) error {
 		return err
 	}
 
+	previousDecision := Decision{}
+	if wd, err := os.Getwd(); err == nil {
+		if policy, _, err := loadPolicy(wd); err == nil {
+			previousDecision = evaluate(policy, *tool, command)
+		}
+	}
+
 	changed := false
 	if err := withPolicyLock(path, func() error {
 		policy, ok, err := readPolicy(path)
@@ -378,8 +388,52 @@ func runPolicyCommand(decision string, args []string, out io.Writer) error {
 	}
 
 	fmt.Fprintf(out, "Set %s policy: %s %q (match=%s, tool=%s)\n", *scope, decision, command, *match, *tool)
+	if previousDecision.Source == "go profile" {
+		if previousDecision.Behavior != decision {
+			fmt.Fprintf(out, "This overrides go profile decision: %s", previousDecision.Behavior)
+			if previousDecision.RuleName != "" {
+				fmt.Fprintf(out, " (%s)", previousDecision.RuleName)
+			}
+			fmt.Fprintln(out)
+		} else {
+			fmt.Fprintln(out, "This pins the existing go profile decision in your policy.")
+		}
+		fmt.Fprintf(out, "Remove it to return to the go profile default: codexgo remove --scope %s --match %s %s\n", *scope, *match, shellQuote(command))
+	}
 	fmt.Fprintf(out, "Policy: %s\n", path)
 	return nil
+}
+
+func printOverrideHelp(out io.Writer, scope, tool, command string, decision Decision) {
+	pattern, match := overridePattern(command, decision)
+	fmt.Fprintln(out, "Override:")
+	for _, behavior := range []string{"allow", "ask", "deny"} {
+		if behavior == decision.Behavior {
+			continue
+		}
+		fmt.Fprintf(out, "  %s\n", policyCommandString(behavior, scope, tool, match, pattern))
+	}
+}
+
+func policyCommandString(behavior, scope, tool, match, command string) string {
+	parts := []string{"codexgo", behavior, "--scope", scope}
+	if tool != "Bash" {
+		parts = append(parts, "--tool", shellQuote(tool))
+	}
+	parts = append(parts, "--match", match, shellQuote(command))
+	return strings.Join(parts, " ")
+}
+
+func overridePattern(command string, decision Decision) (string, string) {
+	if decision.Pattern != "" {
+		match := decision.Match
+		if match == "" {
+			match = "prefix"
+		}
+		return decision.Pattern, match
+	}
+	pattern, match := suggestionPattern(command)
+	return pattern, match
 }
 
 func runRemoveCommand(args []string, out io.Writer) error {

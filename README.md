@@ -92,6 +92,8 @@ codexgo suggest --limit 5
 
 `suggest` reads recent audit logs and recommends explicit rules for repeated prompts. It shows up to 10 suggestions by default; use `--limit` to change the output count. It only prints suggested commands; it does not change policy files.
 
+When `explain` shows a `go profile` decision, it prints project override commands. For example, if `git push` asks by default, `codexgo allow --scope project "git push"` overrides that profile decision for the current repo.
+
 ## How It Works
 
 Codex App can ask for approval many times during ordinary development. CodexGo installs a hook handler before the approval prompt:

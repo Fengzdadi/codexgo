@@ -46,6 +46,18 @@ deny > ask > allow
 
 Project rules are meant to override user-wide preferences for a specific repository. Built-in defaults are not copied into policy files, so local policy only stores rules you explicitly add.
 
+When a command is decided by the `go` profile, add an explicit user or project rule to override it. For example, `git push` asks by default in `go` profile, but this project rule allows it:
+
+```sh
+codexgo allow --scope project "git push"
+```
+
+Remove the explicit rule to return to the profile default:
+
+```sh
+codexgo remove --scope project "git push"
+```
+
 Built-in defaults currently auto-allow read-only discovery commands such as `pwd`, `ls`, `rg`, `git status`, `git diff`, `git log`, and common local verification commands such as `go test`, `npm test`, and `pytest`. Destructive patterns such as `git reset --hard` and remote shell execution patterns such as `curl | sh` are denied.
 
 ## Profiles
@@ -171,9 +183,12 @@ Use `list` to view the effective policy stack:
 
 ```sh
 codexgo profile
+codexgo explain "git push"
 codexgo list
 codexgo suggest
 ```
+
+When `explain` shows a `go profile` decision, it also prints override commands for the current project.
 
 `profile` prints only the effective profile and where it came from:
 

@@ -181,6 +181,45 @@ func TestExplainShowsDecisionSource(t *testing.T) {
 	}
 }
 
+func TestExplainShowsGoProfileOverrideHelp(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	cwd := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+
+	if err := atomicWriteJSON(filepath.Join(cwd, ".codexgo", "policy.json"), Policy{
+		DefaultDecision: defaultDecision,
+		Profile:         goProfile,
+		Rules:           []Rule{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := runExplain([]string{"--cwd", cwd, "git push origin main"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	for _, want := range []string{
+		"Decision: ask",
+		"Source: go profile",
+		"Override:",
+		"codexgo allow --scope project --match prefix 'git push'",
+		"codexgo deny --scope project --match prefix 'git push'",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in explain output:\n%s", want, text)
+		}
+	}
+}
+
 func TestListShowsBuiltInAndProjectPolicy(t *testing.T) {
 	tmp := t.TempDir()
 	home := filepath.Join(tmp, "home")
@@ -269,6 +308,44 @@ func TestPolicyCommandPrintsSetFeedback(t *testing.T) {
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("expected %q in output:\n%s", want, text)
+		}
+	}
+}
+
+func TestPolicyCommandPrintsGoProfileOverrideFeedback(t *testing.T) {
+	home := t.TempDir()
+	cwd := t.TempDir()
+	t.Setenv("HOME", home)
+
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(cwd); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(previous)
+	})
+
+	if err := runGoCommand([]string{"--scope", "project"}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := runPolicyCommand("allow", []string{"--scope", "project", "git push"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	for _, want := range []string{
+		`Set project policy: allow "git push"`,
+		"This overrides go profile decision: ask",
+		"ask sensitive go profile commands",
+		"Remove it to return to the go profile default: codexgo remove --scope project --match prefix 'git push'",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in policy command output:\n%s", want, text)
 		}
 	}
 }
