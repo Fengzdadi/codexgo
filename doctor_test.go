@@ -139,7 +139,13 @@ func TestHasEnabledCodexHooksIgnoresComments(t *testing.T) {
 	if hasEnabledCodexHooks("# codex_hooks = true") {
 		t.Fatal("expected commented feature flag to be ignored")
 	}
-	if !hasEnabledCodexHooks("[features]\ncodex_hooks = true\n") {
-		t.Fatal("expected enabled feature flag to match")
+	for _, text := range []string{
+		"[features]\ncodex_hooks = true\n",
+		"[features]\ncodex_hooks=true\n",
+		"[features]\ncodex_hooks = true # enabled by CodexGo\n",
+	} {
+		if !hasEnabledCodexHooks(text) {
+			t.Fatalf("expected enabled feature flag to match: %q", text)
+		}
 	}
 }

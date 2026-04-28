@@ -96,7 +96,17 @@ func hasEnabledCodexHooks(text string) bool {
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
 			continue
 		}
-		if line == "codex_hooks = true" {
+		if comment := strings.Index(line, "#"); comment >= 0 {
+			line = strings.TrimSpace(line[:comment])
+		}
+		if comment := strings.Index(line, ";"); comment >= 0 {
+			line = strings.TrimSpace(line[:comment])
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(key) == "codex_hooks" && strings.TrimSpace(value) == "true" {
 			return true
 		}
 	}
