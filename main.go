@@ -286,50 +286,31 @@ func runList(args []string, out io.Writer) error {
 }
 
 func evaluate(policy ResolvedPolicy, toolName, command string) Decision {
-	for _, source := range policy.Sources {
-		for _, rule := range source.Policy.Rules {
-			if rule.Decision != "deny" || !matchesTool(rule.Tools, toolName) {
-				continue
-			}
-			if pattern, ok := matchingCommand(rule, command); ok {
-				return Decision{
-					Behavior: rule.Decision,
-					Source:   source.Name,
-					RuleName: rule.Name,
-					Match:    matchMode(rule),
-					Pattern:  pattern,
-					Reason:   fmt.Sprintf("matched %s rule %q", source.Name, rule.Name),
+	for _, behavior := range []string{"deny", "ask", "allow"} {
+		for _, source := range policy.Sources {
+			for _, rule := range source.Policy.Rules {
+				if rule.Decision != behavior || !matchesTool(rule.Tools, toolName) {
+					continue
 				}
-			}
-		}
-	}
-
-	for _, source := range policy.Sources {
-		for _, rule := range source.Policy.Rules {
-			if !validDecision(rule.Decision) || rule.Decision == "deny" {
-				continue
-			}
-			if !matchesTool(rule.Tools, toolName) {
-				continue
-			}
-			if pattern, ok := matchingCommand(rule, command); ok {
-				if rule.Decision == "allow" && hasShellControlOperator(command) && !allSegmentsAllowed(policy, toolName, command) {
+				if pattern, ok := matchingCommand(rule, command); ok {
+					if rule.Decision == "allow" && hasShellControlOperator(command) && !allSegmentsAllowed(policy, toolName, command) {
+						return Decision{
+							Behavior: "ask",
+							Source:   source.Name,
+							RuleName: rule.Name,
+							Match:    matchMode(rule),
+							Pattern:  pattern,
+							Reason:   "compound shell command needs explicit approval",
+						}
+					}
 					return Decision{
-						Behavior: "ask",
+						Behavior: rule.Decision,
 						Source:   source.Name,
 						RuleName: rule.Name,
 						Match:    matchMode(rule),
 						Pattern:  pattern,
-						Reason:   "compound shell command needs explicit approval",
+						Reason:   fmt.Sprintf("matched %s rule %q", source.Name, rule.Name),
 					}
-				}
-				return Decision{
-					Behavior: rule.Decision,
-					Source:   source.Name,
-					RuleName: rule.Name,
-					Match:    matchMode(rule),
-					Pattern:  pattern,
-					Reason:   fmt.Sprintf("matched %s rule %q", source.Name, rule.Name),
 				}
 			}
 		}

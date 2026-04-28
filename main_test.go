@@ -65,6 +65,76 @@ func TestDecideAsksForPartiallyAllowedCompoundCommand(t *testing.T) {
 	}
 }
 
+func TestEvaluateAskOverridesAllow(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Sources: []PolicySource{
+			{
+				Name: "test policy",
+				Policy: Policy{
+					DefaultDecision: defaultDecision,
+					Rules: []Rule{
+						{
+							Name:     "allow push",
+							Decision: "allow",
+							Tools:    []string{"Bash"},
+							Match:    "prefix",
+							Commands: []string{"git push"},
+						},
+						{
+							Name:     "ask push",
+							Decision: "ask",
+							Tools:    []string{"Bash"},
+							Match:    "prefix",
+							Commands: []string{"git push"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", "git push")
+	if decision.Behavior != "ask" || decision.RuleName != "ask push" {
+		t.Fatalf("expected ask to override allow, got %#v", decision)
+	}
+}
+
+func TestEvaluateDenyOverridesAsk(t *testing.T) {
+	policy := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Sources: []PolicySource{
+			{
+				Name: "test policy",
+				Policy: Policy{
+					DefaultDecision: defaultDecision,
+					Rules: []Rule{
+						{
+							Name:     "ask reset",
+							Decision: "ask",
+							Tools:    []string{"Bash"},
+							Match:    "prefix",
+							Commands: []string{"git reset"},
+						},
+						{
+							Name:     "deny reset",
+							Decision: "deny",
+							Tools:    []string{"Bash"},
+							Match:    "prefix",
+							Commands: []string{"git reset"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	decision := evaluate(policy, "Bash", "git reset --hard HEAD")
+	if decision.Behavior != "deny" || decision.RuleName != "deny reset" {
+		t.Fatalf("expected deny to override ask, got %#v", decision)
+	}
+}
+
 func TestLoadPolicyUsesBuiltInDefaultsWithoutPolicyFiles(t *testing.T) {
 	tmp := t.TempDir()
 	home := filepath.Join(tmp, "home")
