@@ -94,6 +94,71 @@ If `hooks.json` already exists, CodexGo refuses to overwrite it. Add this block 
 }
 ```
 
+## Project Example
+
+For a repository-level setup, `codexgo init --scope project` creates project-local Codex hook files:
+
+```text
+<repo>/.codex/config.toml
+<repo>/.codex/hooks.json
+<repo>/.codexgo/policy.json
+```
+
+Example `.codex/config.toml`:
+
+```toml
+[features]
+codex_hooks = true
+```
+
+Example `.codex/hooks.json`:
+
+```json
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "codexgo decide",
+            "timeout": 5,
+            "statusMessage": "Checking CodexGo policy"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Example `.codexgo/policy.json`:
+
+```json
+{
+  "defaultDecision": "ask",
+  "rules": [
+    {
+      "name": "codexgo allow prefix Bash commands",
+      "decision": "allow",
+      "tools": ["Bash"],
+      "match": "prefix",
+      "commands": ["git add", "git commit"]
+    },
+    {
+      "name": "codexgo ask prefix Bash commands",
+      "decision": "ask",
+      "tools": ["Bash"],
+      "match": "prefix",
+      "commands": ["git push"]
+    }
+  ]
+}
+```
+
+Do not commit generated `.codex/hooks.json` if it contains a local absolute path such as `/Users/.../codexgo`. Prefer committing `.codexgo/policy.json` only when the rules represent project-wide policy rather than personal workflow preferences.
+
 ## Why this exists
 
 Codex App can ask for approval many times during ordinary development. Codex already exposes a hook point before the approval prompt is shown. CodexGo installs a handler for that hook:
