@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -63,281 +62,6 @@ func TestDecideAsksForPartiallyAllowedCompoundCommand(t *testing.T) {
 
 	if out.String() != "" {
 		t.Fatalf("expected no output for compound ask, got %s", out.String())
-	}
-}
-
-func TestEvaluateAskOverridesAllow(t *testing.T) {
-	policy := ResolvedPolicy{
-		DefaultDecision: defaultDecision,
-		Sources: []PolicySource{
-			{
-				Name: "test policy",
-				Policy: Policy{
-					DefaultDecision: defaultDecision,
-					Rules: []Rule{
-						{
-							Name:     "allow push",
-							Decision: "allow",
-							Tools:    []string{"Bash"},
-							Match:    "prefix",
-							Commands: []string{"git push"},
-						},
-						{
-							Name:     "ask push",
-							Decision: "ask",
-							Tools:    []string{"Bash"},
-							Match:    "prefix",
-							Commands: []string{"git push"},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	decision := evaluate(policy, "Bash", "git push")
-	if decision.Behavior != "ask" || decision.RuleName != "ask push" {
-		t.Fatalf("expected ask to override allow, got %#v", decision)
-	}
-}
-
-func TestEvaluateDenyOverridesAsk(t *testing.T) {
-	policy := ResolvedPolicy{
-		DefaultDecision: defaultDecision,
-		Sources: []PolicySource{
-			{
-				Name: "test policy",
-				Policy: Policy{
-					DefaultDecision: defaultDecision,
-					Rules: []Rule{
-						{
-							Name:     "ask reset",
-							Decision: "ask",
-							Tools:    []string{"Bash"},
-							Match:    "prefix",
-							Commands: []string{"git reset"},
-						},
-						{
-							Name:     "deny reset",
-							Decision: "deny",
-							Tools:    []string{"Bash"},
-							Match:    "prefix",
-							Commands: []string{"git reset"},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	decision := evaluate(policy, "Bash", "git reset --hard HEAD")
-	if decision.Behavior != "deny" || decision.RuleName != "deny reset" {
-		t.Fatalf("expected deny to override ask, got %#v", decision)
-	}
-}
-
-func TestEvaluateProjectOverridesUser(t *testing.T) {
-	policy := ResolvedPolicy{
-		DefaultDecision: defaultDecision,
-		Sources: []PolicySource{
-			{
-				Name: "project policy",
-				Policy: Policy{
-					DefaultDecision: defaultDecision,
-					Rules: []Rule{
-						{
-							Name:     "project allow push",
-							Decision: "allow",
-							Tools:    []string{"Bash"},
-							Match:    "prefix",
-							Commands: []string{"git push"},
-						},
-					},
-				},
-			},
-			{
-				Name: "user policy",
-				Policy: Policy{
-					DefaultDecision: defaultDecision,
-					Rules: []Rule{
-						{
-							Name:     "user ask push",
-							Decision: "ask",
-							Tools:    []string{"Bash"},
-							Match:    "prefix",
-							Commands: []string{"git push"},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	decision := evaluate(policy, "Bash", "git push")
-	if decision.Behavior != "allow" || decision.Source != "project policy" {
-		t.Fatalf("expected project allow to override user ask, got %#v", decision)
-	}
-}
-
-func TestEvaluateUserOverridesBuiltIn(t *testing.T) {
-	policy := ResolvedPolicy{
-		DefaultDecision: defaultDecision,
-		Sources: []PolicySource{
-			{
-				Name: "user policy",
-				Policy: Policy{
-					DefaultDecision: defaultDecision,
-					Rules: []Rule{
-						{
-							Name:     "user allow reset",
-							Decision: "allow",
-							Tools:    []string{"Bash"},
-							Match:    "prefix",
-							Commands: []string{"git reset"},
-						},
-					},
-				},
-			},
-			{
-				Name:   "built-in defaults",
-				Policy: builtInPolicy(),
-			},
-		},
-	}
-
-	decision := evaluate(policy, "Bash", "git reset --hard HEAD")
-	if decision.Behavior != "allow" || decision.Source != "user policy" {
-		t.Fatalf("expected user allow to override built-in deny, got %#v", decision)
-	}
-}
-
-func TestLoadPolicyUsesBuiltInDefaultsWithoutPolicyFiles(t *testing.T) {
-	tmp := t.TempDir()
-	home := filepath.Join(tmp, "home")
-	cwd := filepath.Join(tmp, "repo")
-	if err := os.MkdirAll(home, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(cwd, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("HOME", home)
-
-	policy, loaded, err := loadPolicy(cwd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(loaded) != 0 {
-		t.Fatalf("expected no loaded policy files, got %#v", loaded)
-	}
-	decision := evaluate(policy, "Bash", "git status")
-	if decision.Behavior != "allow" {
-		t.Fatalf("expected built-in allow, got %#v", decision)
-	}
-}
-
-func TestLoadPolicyMergesExternalRulesOntoBuiltIns(t *testing.T) {
-	tmp := t.TempDir()
-	home := filepath.Join(tmp, "home")
-	cwd := filepath.Join(tmp, "repo")
-	if err := os.MkdirAll(home, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("HOME", home)
-
-	projectPolicy := Policy{
-		DefaultDecision: defaultDecision,
-		Rules: []Rule{
-			{
-				Name:     "project allow commit",
-				Decision: "allow",
-				Tools:    []string{"Bash"},
-				Match:    "prefix",
-				Commands: []string{"git commit"},
-			},
-		},
-	}
-	if err := atomicWriteJSON(filepath.Join(cwd, ".codexgo", "policy.json"), projectPolicy); err != nil {
-		t.Fatal(err)
-	}
-
-	policy, loaded, err := loadPolicy(cwd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(loaded) != 1 {
-		t.Fatalf("expected one loaded policy file, got %#v", loaded)
-	}
-	if decision := evaluate(policy, "Bash", "git status"); decision.Behavior != "allow" {
-		t.Fatalf("expected built-in git status allow, got %#v", decision)
-	}
-	if decision := evaluate(policy, "Bash", "git commit -m test"); decision.Behavior != "allow" {
-		t.Fatalf("expected project git commit allow, got %#v", decision)
-	}
-}
-
-func TestLoadPolicySourcePriority(t *testing.T) {
-	tmp := t.TempDir()
-	home := filepath.Join(tmp, "home")
-	cwd := filepath.Join(tmp, "repo")
-	if err := os.MkdirAll(filepath.Join(home, ".codexgo"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("HOME", home)
-
-	userPolicy := Policy{
-		DefaultDecision: defaultDecision,
-		Rules: []Rule{
-			{
-				Name:     "user ask push",
-				Decision: "ask",
-				Tools:    []string{"Bash"},
-				Match:    "prefix",
-				Commands: []string{"git push"},
-			},
-		},
-	}
-	projectPolicy := Policy{
-		DefaultDecision: defaultDecision,
-		Rules: []Rule{
-			{
-				Name:     "project allow push",
-				Decision: "allow",
-				Tools:    []string{"Bash"},
-				Match:    "prefix",
-				Commands: []string{"git push"},
-			},
-		},
-	}
-	if err := atomicWriteJSON(filepath.Join(home, ".codexgo", "policy.json"), userPolicy); err != nil {
-		t.Fatal(err)
-	}
-	if err := atomicWriteJSON(filepath.Join(cwd, ".codexgo", "policy.json"), projectPolicy); err != nil {
-		t.Fatal(err)
-	}
-
-	policy, _, err := loadPolicy(cwd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := []string{}
-	for _, source := range policy.Sources {
-		got = append(got, source.Name)
-	}
-	want := []string{"project policy", "user policy", "built-in defaults"}
-	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Fatalf("unexpected source order: got %#v want %#v", got, want)
-	}
-
-	decision := evaluate(policy, "Bash", "git push")
-	if decision.Behavior != "allow" || decision.Source != "project policy" {
-		t.Fatalf("expected project allow to win, got %#v", decision)
 	}
 }
 
@@ -479,6 +203,70 @@ func TestPolicyCommandPrintsSetFeedback(t *testing.T) {
 	}
 }
 
+func TestGoCommandSetsProjectProfile(t *testing.T) {
+	home := t.TempDir()
+	cwd := t.TempDir()
+	t.Setenv("HOME", home)
+
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(cwd); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(previous)
+	})
+
+	var out bytes.Buffer
+	if err := runGoCommand([]string{"--scope", "project"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(out.String(), `Enabled "go" profile for project policy`) {
+		t.Fatalf("expected go profile feedback, got:\n%s", out.String())
+	}
+	policy := readTestPolicy(t, filepath.Join(cwd, ".codexgo", "policy.json"))
+	if policy.Profile != goProfile {
+		t.Fatalf("expected go profile, got %#v", policy)
+	}
+}
+
+func TestManualCommandClearsProjectProfile(t *testing.T) {
+	home := t.TempDir()
+	cwd := t.TempDir()
+	t.Setenv("HOME", home)
+
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(cwd); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(previous)
+	})
+
+	if err := runGoCommand([]string{"--scope", "project"}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := runManualCommand([]string{"--scope", "project"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(out.String(), "Enabled manual profile for project policy") {
+		t.Fatalf("expected manual profile feedback, got:\n%s", out.String())
+	}
+	policy := readTestPolicy(t, filepath.Join(cwd, ".codexgo", "policy.json"))
+	if policy.Profile != "" {
+		t.Fatalf("expected empty profile, got %#v", policy)
+	}
+}
+
 func TestPolicyCommandDeduplicatesCommands(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -616,44 +404,4 @@ func TestPolicyCommandConcurrentWritesKeepValidJSON(t *testing.T) {
 			t.Fatalf("missing %q in %#v", want, commands)
 		}
 	}
-}
-
-func readTestPolicy(t *testing.T, path string) Policy {
-	t.Helper()
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var policy Policy
-	if err := json.Unmarshal(data, &policy); err != nil {
-		t.Fatal(err)
-	}
-	return policy
-}
-
-func hookInput(t *testing.T, command string) (string, string) {
-	t.Helper()
-
-	tmp := t.TempDir()
-	home := filepath.Join(tmp, "home")
-	cwd := filepath.Join(tmp, "repo")
-	if err := os.MkdirAll(home, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("HOME", home)
-
-	return cwd, `{
-  "session_id": "test",
-  "cwd": "` + cwd + `",
-  "hook_event_name": "PermissionRequest",
-  "tool_name": "Bash",
-  "tool_input": {
-    "command": "` + command + `",
-    "description": "test command"
-  }
-}`
 }
