@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	version         = "v0.1.2"
+	version         = "v0.1.3"
 	defaultDecision = "ask"
 	goProfile       = "go"
 	userPolicyPath  = ".codexgo/policy.json"

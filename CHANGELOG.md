@@ -4,6 +4,8 @@ All notable changes to CodexGo are documented here.
 
 ## Unreleased
 
+## v0.1.3 - 2026-04-28
+
 ### Added
 
 - Added `codexgo go` to enable a built-in `go` profile for trusted development sessions.

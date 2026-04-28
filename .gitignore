@@ -1,4 +1,5 @@
 bin/
+.codexgo/policy.json
 .codexgo/audit.jsonl
 .codexgo/*.lock
 .codex/
