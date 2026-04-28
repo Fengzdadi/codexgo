@@ -80,7 +80,7 @@ func ensureFeatureFlag(path string) error {
 		return err
 	}
 	text := string(data)
-	if strings.Contains(text, "codex_hooks = true") {
+	if hasEnabledCodexHooks(text) {
 		return nil
 	}
 	appendText := "\n[features]\ncodex_hooks = true\n"
@@ -88,6 +88,19 @@ func ensureFeatureFlag(path string) error {
 		appendText = "\n# CodexGo requires hooks to be enabled.\n# If another [features] table already exists above, move this key there.\n# codex_hooks = true\n"
 	}
 	return os.WriteFile(path, append(data, []byte(appendText)...), 0o644)
+}
+
+func hasEnabledCodexHooks(text string) bool {
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		if line == "codex_hooks = true" {
+			return true
+		}
+	}
+	return false
 }
 
 func writeHooks(path, bin string) error {

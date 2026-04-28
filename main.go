@@ -39,6 +39,8 @@ func main() {
 		err = runList(os.Args[2:], os.Stdout)
 	case "profile":
 		err = runProfile(os.Args[2:], os.Stdout)
+	case "doctor":
+		err = runDoctor(os.Args[2:], os.Stdout)
 	case "sample-policy":
 		err = writeJSON(os.Stdout, samplePolicy())
 	case "audit":
@@ -73,6 +75,7 @@ Usage:
   codexgo explain [--cwd /path/to/project] [--tool Bash] <command>
   codexgo list [--cwd /path/to/project]
   codexgo profile [--cwd /path/to/project]
+  codexgo doctor [--cwd /path/to/project]
   codexgo decide
   codexgo sample-policy
   codexgo audit [--limit 10]

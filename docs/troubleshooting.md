@@ -4,6 +4,7 @@
 
 If Codex still prompts for a command that `codexgo explain` says should be allowed:
 
+- Run `codexgo doctor` first to inspect the binary, hooks, policy files, profile, and audit logs.
 - Start a new Codex session for the workspace so hooks are reloaded.
 - Confirm hooks are enabled in `.codex/config.toml` or `~/.codex/config.toml`.
 - Confirm `hooks.json` points to the absolute path of the `codexgo` binary.

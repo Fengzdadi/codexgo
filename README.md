@@ -16,6 +16,7 @@ Verify the install:
 
 ```sh
 codexgo version
+codexgo doctor
 codexgo explain "git status"
 ```
 
@@ -84,6 +85,7 @@ Inspect decisions:
 
 ```sh
 codexgo profile
+codexgo doctor
 codexgo explain "git commit -m test"
 codexgo list
 codexgo suggest
