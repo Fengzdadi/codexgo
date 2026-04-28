@@ -297,7 +297,7 @@ func TestListShowsBuiltInAndProjectPolicy(t *testing.T) {
 }
 
 func TestVersionConstant(t *testing.T) {
-	if version != "v0.1.0" {
+	if version != "v0.1.1" {
 		t.Fatalf("unexpected version: %s", version)
 	}
 }
