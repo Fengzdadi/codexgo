@@ -15,17 +15,6 @@
       ]
     },
     {
-      "name": "codexgo deny prefix Bash commands",
-      "decision": "deny",
-      "tools": [
-        "Bash"
-      ],
-      "match": "prefix",
-      "commands": [
-        "git push"
-      ]
-    },
-    {
       "name": "codexgo allow exact Bash commands",
       "decision": "allow",
       "tools": [
