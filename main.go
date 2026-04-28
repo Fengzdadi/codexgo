@@ -45,9 +45,23 @@ type Rule struct {
 	Commands []string `json:"commands"`
 }
 
+type ResolvedPolicy struct {
+	DefaultDecision string
+	Sources         []PolicySource
+}
+
+type PolicySource struct {
+	Name   string
+	Path   string
+	Policy Policy
+}
+
 type Decision struct {
 	Behavior string
+	Source   string
 	RuleName string
+	Match    string
+	Pattern  string
 	Reason   string
 }
 
@@ -79,6 +93,10 @@ func main() {
 		err = runInit(os.Args[2:])
 	case "allow", "deny", "ask":
 		err = runPolicyCommand(os.Args[1], os.Args[2:])
+	case "explain":
+		err = runExplain(os.Args[2:], os.Stdout)
+	case "list":
+		err = runList(os.Args[2:], os.Stdout)
 	case "sample-policy":
 		err = writeJSON(os.Stdout, samplePolicy())
 	case "audit":
@@ -103,6 +121,8 @@ Usage:
   codexgo allow [--scope user|project] [--match exact|prefix|contains] <command>
   codexgo deny  [--scope user|project] [--match exact|prefix|contains] <command>
   codexgo ask   [--scope user|project] [--match exact|prefix|contains] <command>
+  codexgo explain [--cwd /path/to/project] [--tool Bash] <command>
+  codexgo list [--cwd /path/to/project]
   codexgo decide
   codexgo sample-policy
   codexgo audit`)
@@ -127,12 +147,12 @@ func runDecide(in io.Reader, out io.Writer) error {
 		_ = json.Unmarshal(input.ToolInput, &toolInput)
 	}
 
-	policy, loadedFrom, err := loadPolicy(input.CWD)
+	resolved, loadedFrom, err := loadPolicy(input.CWD)
 	if err != nil {
 		return err
 	}
 
-	decision := evaluate(policy, input.ToolName, toolInput.Command)
+	decision := evaluate(resolved, input.ToolName, toolInput.Command)
 	writeAudit(input, toolInput.Command, decision, loadedFrom)
 
 	switch decision.Behavior {
@@ -156,39 +176,157 @@ func runDecide(in io.Reader, out io.Writer) error {
 	}
 }
 
-func evaluate(policy Policy, toolName, command string) Decision {
-	for _, rule := range policy.Rules {
-		if rule.Decision != "deny" || !matchesTool(rule.Tools, toolName) {
+func runExplain(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("explain", flag.ContinueOnError)
+	cwd := fs.String("cwd", "", "project directory to load project policy from")
+	tool := fs.String("tool", "Bash", "Codex hook tool name")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() == 0 {
+		return errors.New("missing command")
+	}
+	command := strings.Join(fs.Args(), " ")
+	command = strings.Join(strings.Fields(command), " ")
+	if command == "" {
+		return errors.New("empty command")
+	}
+	if *cwd == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		*cwd = wd
+	}
+
+	policy, loaded, err := loadPolicy(*cwd)
+	if err != nil {
+		return err
+	}
+	decision := evaluate(policy, *tool, command)
+
+	fmt.Fprintf(out, "Command: %s\n", command)
+	fmt.Fprintf(out, "Tool: %s\n", *tool)
+	fmt.Fprintf(out, "Decision: %s\n", decision.Behavior)
+	if decision.Source != "" {
+		fmt.Fprintf(out, "Source: %s\n", decision.Source)
+	}
+	if decision.RuleName != "" {
+		fmt.Fprintf(out, "Rule: %s\n", decision.RuleName)
+	}
+	if decision.Match != "" {
+		fmt.Fprintf(out, "Match: %s\n", decision.Match)
+	}
+	if decision.Pattern != "" {
+		fmt.Fprintf(out, "Pattern: %s\n", decision.Pattern)
+	}
+	fmt.Fprintf(out, "Reason: %s\n", decision.Reason)
+	if len(loaded) > 0 {
+		fmt.Fprintln(out, "Loaded policy files:")
+		for _, path := range loaded {
+			fmt.Fprintf(out, "  - %s\n", path)
+		}
+	}
+	return nil
+}
+
+func runList(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("list", flag.ContinueOnError)
+	cwd := fs.String("cwd", "", "project directory to load project policy from")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *cwd == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		*cwd = wd
+	}
+
+	policy, loaded, err := loadPolicy(*cwd)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(out, "Default decision: %s\n", policy.DefaultDecision)
+	if len(loaded) > 0 {
+		fmt.Fprintln(out, "Loaded policy files:")
+		for _, path := range loaded {
+			fmt.Fprintf(out, "  - %s\n", path)
+		}
+	}
+
+	for _, source := range policy.Sources {
+		label := source.Name
+		if source.Path != "" {
+			label = fmt.Sprintf("%s (%s)", label, source.Path)
+		}
+		fmt.Fprintf(out, "\n%s\n", label)
+		if len(source.Policy.Rules) == 0 {
+			fmt.Fprintln(out, "  no rules")
 			continue
 		}
-		if matchesCommand(rule, command) {
-			return Decision{
-				Behavior: rule.Decision,
-				RuleName: rule.Name,
-				Reason:   fmt.Sprintf("matched codexgo rule %q", rule.Name),
+		for _, rule := range source.Policy.Rules {
+			fmt.Fprintf(out, "  [%s] %s", rule.Decision, rule.Name)
+			if len(rule.Tools) > 0 {
+				fmt.Fprintf(out, " tools=%s", strings.Join(rule.Tools, ","))
+			}
+			fmt.Fprintf(out, " match=%s\n", matchMode(rule))
+			for _, command := range rule.Commands {
+				fmt.Fprintf(out, "    - %s\n", command)
+			}
+		}
+	}
+	return nil
+}
+
+func evaluate(policy ResolvedPolicy, toolName, command string) Decision {
+	for _, source := range policy.Sources {
+		for _, rule := range source.Policy.Rules {
+			if rule.Decision != "deny" || !matchesTool(rule.Tools, toolName) {
+				continue
+			}
+			if pattern, ok := matchingCommand(rule, command); ok {
+				return Decision{
+					Behavior: rule.Decision,
+					Source:   source.Name,
+					RuleName: rule.Name,
+					Match:    matchMode(rule),
+					Pattern:  pattern,
+					Reason:   fmt.Sprintf("matched %s rule %q", source.Name, rule.Name),
+				}
 			}
 		}
 	}
 
-	for _, rule := range policy.Rules {
-		if !validDecision(rule.Decision) || rule.Decision == "deny" {
-			continue
-		}
-		if !matchesTool(rule.Tools, toolName) {
-			continue
-		}
-		if matchesCommand(rule, command) {
-			if rule.Decision == "allow" && hasShellControlOperator(command) && !allSegmentsAllowed(policy, toolName, command) {
-				return Decision{
-					Behavior: "ask",
-					RuleName: rule.Name,
-					Reason:   "compound shell command needs explicit approval",
-				}
+	for _, source := range policy.Sources {
+		for _, rule := range source.Policy.Rules {
+			if !validDecision(rule.Decision) || rule.Decision == "deny" {
+				continue
 			}
-			return Decision{
-				Behavior: rule.Decision,
-				RuleName: rule.Name,
-				Reason:   fmt.Sprintf("matched codexgo rule %q", rule.Name),
+			if !matchesTool(rule.Tools, toolName) {
+				continue
+			}
+			if pattern, ok := matchingCommand(rule, command); ok {
+				if rule.Decision == "allow" && hasShellControlOperator(command) && !allSegmentsAllowed(policy, toolName, command) {
+					return Decision{
+						Behavior: "ask",
+						Source:   source.Name,
+						RuleName: rule.Name,
+						Match:    matchMode(rule),
+						Pattern:  pattern,
+						Reason:   "compound shell command needs explicit approval",
+					}
+				}
+				return Decision{
+					Behavior: rule.Decision,
+					Source:   source.Name,
+					RuleName: rule.Name,
+					Match:    matchMode(rule),
+					Pattern:  pattern,
+					Reason:   fmt.Sprintf("matched %s rule %q", source.Name, rule.Name),
+				}
 			}
 		}
 	}
@@ -200,7 +338,7 @@ func evaluate(policy Policy, toolName, command string) Decision {
 	return Decision{Behavior: behavior, Reason: "no codexgo rule matched"}
 }
 
-func allSegmentsAllowed(policy Policy, toolName, command string) bool {
+func allSegmentsAllowed(policy ResolvedPolicy, toolName, command string) bool {
 	segments := splitShellSegments(command)
 	if len(segments) <= 1 {
 		return true
@@ -208,12 +346,17 @@ func allSegmentsAllowed(policy Policy, toolName, command string) bool {
 
 	for _, segment := range segments {
 		allowed := false
-		for _, rule := range policy.Rules {
-			if rule.Decision != "allow" || !matchesTool(rule.Tools, toolName) {
-				continue
+		for _, source := range policy.Sources {
+			for _, rule := range source.Policy.Rules {
+				if rule.Decision != "allow" || !matchesTool(rule.Tools, toolName) {
+					continue
+				}
+				if matchesCommand(rule, segment) {
+					allowed = true
+					break
+				}
 			}
-			if matchesCommand(rule, segment) {
-				allowed = true
+			if allowed {
 				break
 			}
 		}
@@ -271,52 +414,84 @@ func matchesTool(tools []string, toolName string) bool {
 }
 
 func matchesCommand(rule Rule, command string) bool {
+	_, ok := matchingCommand(rule, command)
+	return ok
+}
+
+func matchingCommand(rule Rule, command string) (string, bool) {
 	normalized := strings.Join(strings.Fields(command), " ")
-	match := rule.Match
-	if match == "" {
-		match = "prefix"
-	}
+	match := matchMode(rule)
 
 	for _, pattern := range rule.Commands {
 		pattern = strings.Join(strings.Fields(pattern), " ")
 		switch match {
 		case "exact":
 			if normalized == pattern {
-				return true
+				return pattern, true
 			}
 		case "contains":
 			if strings.Contains(normalized, pattern) {
-				return true
+				return pattern, true
 			}
 		case "prefix":
 			if normalized == pattern || strings.HasPrefix(normalized, pattern+" ") {
-				return true
+				return pattern, true
 			}
 		}
 	}
-	return false
+	return "", false
+}
+
+func matchMode(rule Rule) string {
+	if rule.Match == "" {
+		return "prefix"
+	}
+	return rule.Match
 }
 
 func validDecision(decision string) bool {
 	return decision == "allow" || decision == "deny" || decision == "ask"
 }
 
-func loadPolicy(cwd string) (Policy, []string, error) {
-	policy := builtInPolicy()
+func loadPolicy(cwd string) (ResolvedPolicy, []string, error) {
+	resolved := ResolvedPolicy{
+		DefaultDecision: defaultDecision,
+		Sources: []PolicySource{
+			{Name: "built-in defaults", Policy: builtInPolicy()},
+		},
+	}
 	var loaded []string
 
 	for _, path := range policyPaths(cwd) {
 		next, ok, err := readPolicy(path)
 		if err != nil {
-			return Policy{}, nil, err
+			return ResolvedPolicy{}, nil, err
 		}
 		if !ok {
 			continue
 		}
-		policy = mergePolicy(policy, next)
+		if next.DefaultDecision != "" {
+			resolved.DefaultDecision = next.DefaultDecision
+		}
+		resolved.Sources = append(resolved.Sources, PolicySource{
+			Name:   policySourceName(path, cwd),
+			Path:   path,
+			Policy: next,
+		})
 		loaded = append(loaded, path)
 	}
-	return policy, loaded, nil
+	return resolved, loaded, nil
+}
+
+func policySourceName(path, cwd string) string {
+	home, _ := os.UserHomeDir()
+	if home != "" && path == filepath.Join(home, userPolicyPath) {
+		return "user policy"
+	}
+	if cwd != "" && path == filepath.Join(cwd, ".codexgo", "policy.json") {
+		return "project policy"
+	}
+	return path
 }
 
 func policyPaths(cwd string) []string {
@@ -344,14 +519,6 @@ func readPolicy(path string) (Policy, bool, error) {
 		return Policy{}, false, fmt.Errorf("decode policy %s: %w", path, err)
 	}
 	return policy, true, nil
-}
-
-func mergePolicy(base, next Policy) Policy {
-	if next.DefaultDecision != "" {
-		base.DefaultDecision = next.DefaultDecision
-	}
-	base.Rules = append(base.Rules, next.Rules...)
-	return base
 }
 
 func builtInPolicy() Policy {

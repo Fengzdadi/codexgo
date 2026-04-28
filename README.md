@@ -2,17 +2,7 @@
 
 CodexGo is a small policy layer for Codex `PermissionRequest` hooks. It lets Codex auto-approve low-risk shell approvals, deny known-dangerous patterns, and fall back to the normal Codex prompt when no rule matches.
 
-## Why this exists
-
-Codex App can ask for approval many times during ordinary development. Codex already exposes a hook point before the approval prompt is shown. CodexGo installs a handler for that hook:
-
-```text
-Codex PermissionRequest -> codexgo decide -> allow / deny / no decision
-```
-
-No decision means Codex keeps its normal approval dialog.
-
-## Install locally
+## Quick Start
 
 Build the CLI:
 
@@ -32,11 +22,26 @@ Or install it only for this project:
 ./bin/codexgo init --scope project --bin "$(pwd)/bin/codexgo"
 ```
 
+Add project-specific approvals:
+
+```sh
+./bin/codexgo allow --scope project "git add"
+./bin/codexgo allow --scope project "git commit"
+./bin/codexgo deny --scope project "git push"
+```
+
+Check what will happen before using Codex:
+
+```sh
+./bin/codexgo explain "git commit -m test"
+./bin/codexgo list
+```
+
 `init` writes:
 
 - `config.toml` with `codex_hooks = true`
 - `hooks.json` with a `PermissionRequest` hook for `Bash`
-- `.codexgo/policy.json` with starter rules
+- `.codexgo/policy.json` for rules you explicitly add
 
 If `hooks.json` already exists, CodexGo refuses to overwrite it. Add this block manually instead:
 
@@ -59,6 +64,18 @@ If `hooks.json` already exists, CodexGo refuses to overwrite it. Add this block 
   }
 }
 ```
+
+## Why this exists
+
+Codex App can ask for approval many times during ordinary development. Codex already exposes a hook point before the approval prompt is shown. CodexGo installs a handler for that hook:
+
+```text
+Codex PermissionRequest -> codexgo decide -> allow / deny / no decision
+```
+
+No decision means Codex keeps its normal approval dialog.
+
+CodexGo only handles Codex `PermissionRequest` hooks. It does not disable operating system permissions, Git protections, network authentication, or any separate sandbox layer outside Codex hooks.
 
 ## Policy
 
@@ -86,6 +103,8 @@ Project policy lives at:
 ```
 
 CodexGo always starts with built-in defaults, then loads user rules, then project rules. The built-in defaults are not copied into policy files, so local policy only stores rules you explicitly add.
+
+Built-in defaults currently auto-allow read-only discovery commands such as `pwd`, `ls`, `rg`, `git status`, `git diff`, `git log`, and common local verification commands such as `go test`, `npm test`, and `pytest`. Destructive patterns such as `git reset --hard` and remote shell execution patterns such as `curl | sh` are denied.
 
 A policy looks like:
 
@@ -125,6 +144,35 @@ The CLI writes ordinary policy JSON, so you can still edit the file by hand for 
 }
 ```
 
+## Inspect Decisions
+
+Use `explain` to see why a command would be allowed, denied, or sent back to the Codex prompt:
+
+```sh
+./bin/codexgo explain "git status --short"
+./bin/codexgo explain "git commit -m test"
+./bin/codexgo explain "npm install react"
+```
+
+Example:
+
+```text
+Command: git commit -m test
+Tool: Bash
+Decision: allow
+Source: project policy
+Rule: codexgo allow prefix Bash commands
+Match: prefix
+Pattern: git commit
+Reason: matched project policy rule "codexgo allow prefix Bash commands"
+```
+
+Use `list` to view the effective policy stack:
+
+```sh
+./bin/codexgo list
+```
+
 ## Test the hook handler
 
 ```sh
@@ -158,3 +206,14 @@ View audit logs:
 ```sh
 ./bin/codexgo audit
 ```
+
+## Troubleshooting
+
+If Codex still prompts for a command that `codexgo explain` says should be allowed:
+
+- Start a new Codex session for the workspace so hooks are reloaded.
+- Confirm hooks are enabled in `.codex/config.toml` or `~/.codex/config.toml`.
+- Confirm `hooks.json` points to the absolute path of the `codexgo` binary.
+- Check whether `.codexgo/audit.jsonl` received a new entry.
+
+If the audit log has no new entry, Codex did not invoke the hook. If the audit log shows `decision: allow` but Codex still prompts, the prompt is coming from another permission or sandbox layer.

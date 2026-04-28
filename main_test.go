@@ -133,6 +133,98 @@ func TestLoadPolicyMergesExternalRulesOntoBuiltIns(t *testing.T) {
 	}
 }
 
+func TestExplainShowsDecisionSource(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	cwd := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+
+	projectPolicy := Policy{
+		DefaultDecision: defaultDecision,
+		Rules: []Rule{
+			{
+				Name:     "project allow commit",
+				Decision: "allow",
+				Tools:    []string{"Bash"},
+				Match:    "prefix",
+				Commands: []string{"git commit"},
+			},
+		},
+	}
+	if err := atomicWriteJSON(filepath.Join(cwd, ".codexgo", "policy.json"), projectPolicy); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := runExplain([]string{"--cwd", cwd, "git commit -m test"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	for _, want := range []string{
+		"Decision: allow",
+		"Source: project policy",
+		"Rule: project allow commit",
+		"Pattern: git commit",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in explain output:\n%s", want, text)
+		}
+	}
+}
+
+func TestListShowsBuiltInAndProjectPolicy(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	cwd := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+
+	projectPolicy := Policy{
+		DefaultDecision: defaultDecision,
+		Rules: []Rule{
+			{
+				Name:     "project deny push",
+				Decision: "deny",
+				Tools:    []string{"Bash"},
+				Match:    "prefix",
+				Commands: []string{"git push"},
+			},
+		},
+	}
+	if err := atomicWriteJSON(filepath.Join(cwd, ".codexgo", "policy.json"), projectPolicy); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := runList([]string{"--cwd", cwd}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	for _, want := range []string{
+		"built-in defaults",
+		"allow read-only discovery",
+		"project policy",
+		"project deny push",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in list output:\n%s", want, text)
+		}
+	}
+}
+
 func TestPolicyCommandAddsUserAllowRule(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
