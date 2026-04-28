@@ -10,6 +10,7 @@ All notable changes to CodexGo are documented here.
 
 ### Changed
 
+- `codexgo audit` now shows the 10 most recent entries by default and supports `--limit 0` for full output.
 - In `go` profile, compound shell commands are now evaluated segment by segment instead of always asking.
 - Environment-variable prefixes such as `NODE_ENV=test npm test` are now evaluated by the underlying command.
 - Quoted shell operators such as `echo "a | b"` no longer count as compound shell syntax.

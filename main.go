@@ -42,7 +42,7 @@ func main() {
 	case "sample-policy":
 		err = writeJSON(os.Stdout, samplePolicy())
 	case "audit":
-		err = runAudit()
+		err = runAudit(os.Args[2:], os.Stdout)
 	case "version":
 		fmt.Fprintf(os.Stdout, "CodexGo %s\n", version)
 	case "help", "-h", "--help":
@@ -73,6 +73,6 @@ Usage:
   codexgo profile [--cwd /path/to/project]
   codexgo decide
   codexgo sample-policy
-  codexgo audit
+  codexgo audit [--limit 10]
   codexgo version`)
 }

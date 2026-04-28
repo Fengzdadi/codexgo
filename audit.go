@@ -1,18 +1,35 @@
 package main
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
 )
 
-func runAudit() error {
+func runAudit(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("audit", flag.ContinueOnError)
+	limit := fs.Int("limit", 10, "number of recent audit entries to show; use 0 for all")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		return fmt.Errorf("audit does not accept command arguments")
+	}
+	if *limit < 0 {
+		return fmt.Errorf("invalid limit %d", *limit)
+	}
+
 	home, _ := os.UserHomeDir()
 	paths := []string{filepath.Join(".codexgo", "audit.jsonl")}
 	if home != "" {
 		paths = append(paths, filepath.Join(home, auditPath))
 	}
+
+	var lines [][]byte
 	for _, path := range paths {
 		data, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
@@ -21,7 +38,21 @@ func runAudit() error {
 		if err != nil {
 			return err
 		}
-		fmt.Print(string(data))
+		for _, line := range bytes.Split(data, []byte("\n")) {
+			if len(bytes.TrimSpace(line)) == 0 {
+				continue
+			}
+			copied := append([]byte(nil), line...)
+			lines = append(lines, copied)
+		}
+	}
+
+	start := 0
+	if *limit > 0 && len(lines) > *limit {
+		start = len(lines) - *limit
+	}
+	for _, line := range lines[start:] {
+		fmt.Fprintln(out, string(line))
 	}
 	return nil
 }

@@ -12,6 +12,8 @@ If Codex still prompts for a command that `codexgo explain` says should be allow
 
 If the audit log has no new entry, Codex did not invoke the hook. If the audit log shows `decision: allow` but Codex still prompts, the prompt is coming from another permission or sandbox layer.
 
+`codexgo audit` prints the 10 most recent entries by default. Use `codexgo audit --limit 0` to inspect the full log.
+
 ## Global Command Looks Outdated
 
 If `./bin/codexgo` behaves differently from `codexgo`, check which binary your shell is using:

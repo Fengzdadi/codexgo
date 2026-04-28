@@ -125,4 +125,8 @@ View audit logs:
 
 ```sh
 codexgo audit
+codexgo audit --limit 20
+codexgo audit --limit 0
 ```
+
+By default, `audit` prints the 10 most recent entries. Use `--limit 0` to print all entries.

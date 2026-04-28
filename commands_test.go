@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -62,6 +63,75 @@ func TestDecideDeniesRemoteShellCompoundCommand(t *testing.T) {
 
 	if !strings.Contains(out.String(), `"behavior": "deny"`) {
 		t.Fatalf("expected deny output for remote shell compound, got %s", out.String())
+	}
+}
+
+func TestAuditDefaultsToRecentTenEntries(t *testing.T) {
+	cwd := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(cwd); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(previous)
+	})
+
+	var data strings.Builder
+	for i := 1; i <= 12; i++ {
+		data.WriteString(fmt.Sprintf(`{"command":"cmd-%02d"}`+"\n", i))
+	}
+	if err := os.WriteFile(filepath.Join(cwd, ".codexgo", "audit.jsonl"), []byte(data.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := runAudit(nil, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	if strings.Contains(text, "cmd-01") || strings.Contains(text, "cmd-02") {
+		t.Fatalf("expected default audit output to omit oldest entries:\n%s", text)
+	}
+	if !strings.Contains(text, "cmd-03") || !strings.Contains(text, "cmd-12") {
+		t.Fatalf("expected default audit output to include recent entries:\n%s", text)
+	}
+}
+
+func TestAuditLimitZeroShowsAllEntries(t *testing.T) {
+	cwd := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(cwd, ".codexgo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(cwd); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(previous)
+	})
+
+	if err := os.WriteFile(filepath.Join(cwd, ".codexgo", "audit.jsonl"), []byte("{\"command\":\"first\"}\n{\"command\":\"second\"}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := runAudit([]string{"--limit", "0"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	text := out.String()
+	if !strings.Contains(text, "first") || !strings.Contains(text, "second") {
+		t.Fatalf("expected limit 0 to show all entries:\n%s", text)
 	}
 }
 
