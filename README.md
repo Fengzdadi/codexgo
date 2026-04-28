@@ -86,7 +86,10 @@ Inspect decisions:
 codexgo profile
 codexgo explain "git commit -m test"
 codexgo list
+codexgo suggest
 ```
+
+`suggest` reads recent audit logs and recommends explicit rules for repeated prompts. It only prints suggested commands; it does not change policy files.
 
 ## How It Works
 

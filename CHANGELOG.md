@@ -7,6 +7,7 @@ All notable changes to CodexGo are documented here.
 ### Added
 
 - Added `codexgo profile` to show the effective profile, source, policy file, and default decision.
+- Added `codexgo suggest` to recommend policy commands from repeated audit `ask` entries.
 
 ### Changed
 

@@ -43,6 +43,8 @@ func main() {
 		err = writeJSON(os.Stdout, samplePolicy())
 	case "audit":
 		err = runAudit(os.Args[2:], os.Stdout)
+	case "suggest":
+		err = runSuggest(os.Args[2:], os.Stdout)
 	case "version":
 		fmt.Fprintf(os.Stdout, "CodexGo %s\n", version)
 	case "help", "-h", "--help":
@@ -74,5 +76,6 @@ Usage:
   codexgo decide
   codexgo sample-policy
   codexgo audit [--limit 10]
+  codexgo suggest [--limit 100] [--scope user|project]
   codexgo version`)
 }

@@ -23,14 +23,8 @@ func runAudit(args []string, out io.Writer) error {
 		return fmt.Errorf("invalid limit %d", *limit)
 	}
 
-	home, _ := os.UserHomeDir()
-	paths := []string{filepath.Join(".codexgo", "audit.jsonl")}
-	if home != "" {
-		paths = append(paths, filepath.Join(home, auditPath))
-	}
-
 	var lines [][]byte
-	for _, path := range paths {
+	for _, path := range auditLogPaths() {
 		data, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
 			continue
@@ -55,6 +49,15 @@ func runAudit(args []string, out io.Writer) error {
 		fmt.Fprintln(out, string(line))
 	}
 	return nil
+}
+
+func auditLogPaths() []string {
+	home, _ := os.UserHomeDir()
+	paths := []string{filepath.Join(".codexgo", "audit.jsonl")}
+	if home != "" {
+		paths = append(paths, filepath.Join(home, auditPath))
+	}
+	return paths
 }
 
 func writeAudit(input HookInput, command string, decision Decision, policyFiles []string) {

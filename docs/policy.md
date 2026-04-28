@@ -172,6 +172,7 @@ Use `list` to view the effective policy stack:
 ```sh
 codexgo profile
 codexgo list
+codexgo suggest
 ```
 
 `profile` prints only the effective profile and where it came from:
@@ -182,3 +183,13 @@ Source: project policy
 Policy: /path/to/repo/.codexgo/policy.json
 Default decision: ask
 ```
+
+Use `suggest` to review repeated prompts from recent audit logs:
+
+```sh
+codexgo suggest
+codexgo suggest --limit 50
+codexgo suggest --scope user
+```
+
+`suggest` is deterministic. It groups recent `ask` decisions, ignores already allowed or denied entries, and prints possible `codexgo allow`, `codexgo ask`, or `codexgo deny` commands. It does not call an LLM and does not modify policy files.
